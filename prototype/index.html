@@ -76,6 +76,21 @@
     margin: 0 0 16px;
   }
   .offmap-group + .offmap-group { margin-top: 20px; }
+
+  /* パネルを開いている間はズーム操作を隠す(狭い画面で重なるため) */
+  body.offmap-open .leaflet-control-zoom { display: none; }
+
+  @media (max-width: 600px) {
+    .site-title { top: 16px; left: 18px; }
+    .site-title h1 { font-size: 20px; }
+    .site-title p  { font-size: 10px; margin-top: 4px; }
+    .offmap-link  { bottom: 18px; left: 18px; font-size: 12px; padding: 8px 14px 8px 16px; }
+    .offmap-panel {
+      bottom: 58px; left: 18px; right: 18px; width: auto; max-height: 56vh;
+      padding: 18px 18px;
+    }
+    .leaflet-popup-content { margin: 16px 18px; }
+  }
 </style>
 </head>
 <body>
@@ -100,16 +115,27 @@ const WORLD = L.latLngBounds([[-60, -180], [82, 180]]);
 
 const map = L.map("map", {
   zoomControl: false,
-  minZoom: 2,
   maxBounds: WORLD,
-  maxBoundsViscosity: 1.0
+  maxBoundsViscosity: 1.0,
+  // 整数ズームだけだと画面幅に対して地図が小さく収まりすぎる
+  zoomSnap: 0.25
 });
+
+// 引ける限界は「世界が画面に収まるズーム」。固定値にすると
+// 縦長のスマホで世界が収まりきらず、ピンが画面外に出る
+function applyMinZoom() {
+  const z = map.getBoundsZoom(WORLD, false);
+  map.setMinZoom(z);
+}
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
 // 国土地理院 淡色地図(日本語表記)
 L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
   attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
-  maxZoom: 12, noWrap: true
+  maxZoom: 12, noWrap: true,
+  // 地理院タイルは z2 未満が存在しない。縦長のスマホでは世界を収めるのに
+  // z2 未満が要るため、z2 のタイルを縮小して使う
+  minZoom: 0, minNativeZoom: 2
 }).addTo(map);
 
 // 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
@@ -162,6 +188,7 @@ function renderOffmap(offmap, covers) {
   link.addEventListener("click", () => {
     const open = panel.style.display === "block";
     panel.style.display = open ? "none" : "block";
+    document.body.classList.toggle("offmap-open", !open);
   });
 }
 
@@ -201,18 +228,25 @@ async function init() {
 
     L.marker([lat, lng], { icon })
       .addTo(map)
-      .bindPopup(html, { maxWidth: 320, minWidth: 260, autoPanPadding: L.point(30, 30) });
+      .bindPopup(html, {
+        maxWidth: Math.min(320, window.innerWidth - 48),
+        minWidth: Math.min(260, window.innerWidth - 48),
+        autoPanPadding: L.point(20, 80)
+      });
   }
 
   function fit() {
     map.invalidateSize();
-    map.fitBounds(L.latLngBounds(latlngs), { padding: [60, 60], animate: false });
+    applyMinZoom();
+    const pad = Math.min(60, Math.round(map.getSize().x * 0.08));
+    map.fitBounds(L.latLngBounds(latlngs), { padding: [pad, pad], animate: false });
   }
   // コンテナサイズ確定前だと fitBounds が壊れるため、妥当なズームになるまで再試行
   (function ensureFit(tries) {
     fit();
     if (map.getZoom() > 8 && tries > 0) setTimeout(() => ensureFit(tries - 1), 200);
   })(50);
+  window.addEventListener("resize", fit);
 }
 
 init();
