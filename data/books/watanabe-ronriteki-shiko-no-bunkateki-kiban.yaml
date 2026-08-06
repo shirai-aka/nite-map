@@ -1,0 +1,31 @@
+title: 「論理的思考」の文化的基盤──4つの思考表現スタイル
+author: 渡邉雅子
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  quote: 二〇二三年四月一五日 コロナが収束しつつある名古屋にて 渡邉雅子
+  page: null
+  date: "2023-04-15"
+
+place:
+  name: 名古屋
+  lat: 35.1815
+  lng: 136.9066
+  precision: city
+  kind: null
+
+book:
+  published: 2023
+  publisher: 岩波書店
+  isbn: "9784000026093"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-02
+  contributor: null
+  notes: ""

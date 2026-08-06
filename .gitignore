@@ -1,0 +1,5 @@
+.DS_Store
+node_modules/
+
+# build.js の生成物(data/books/*.yaml が原本)
+prototype/books.json

@@ -1,0 +1,31 @@
+title: コンサルを超える問題解決と価値創造の全技法
+author: 名和高司
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  quote: 二〇一八年六月 シリコンバレーにて 名和高司
+  page: null
+  date: "2018-06"
+
+place:
+  name: シリコンバレー
+  lat: 37.3875
+  lng: -122.0575
+  precision: region
+  kind: null
+
+book:
+  published: 2018
+  publisher: ディスカヴァー・トゥエンティワン
+  isbn: "9784799323144"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-02
+  contributor: null
+  notes: ""

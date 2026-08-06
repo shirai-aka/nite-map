@@ -1,0 +1,32 @@
+title: 城の崎にて
+author: 志賀直哉
+translator: null
+
+atogaki:
+  type: title
+  nite: true
+  signer: null
+  quote: 城の崎にて
+  page: null
+  date: "1917-05"
+
+place:
+  name: 城の崎(城崎温泉)
+  lat: 35.6249
+  lng: 134.8106
+  precision: city
+  kind: null
+
+book:
+  published: 2005
+  publisher: 新潮社(新潮文庫『小僧の神様・城の崎にて』所収)
+  isbn: "9784101030050"
+  format: print
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-03
+  contributor: null
+  notes: "変則採録(type: title)の初例。初出は『白樺』1917年5月号。青空文庫でも読める"

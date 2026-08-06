@@ -1,0 +1,32 @@
+title: TIME OFF 働き方に“生産性”と“創造性”を取り戻す戦略的休息術
+author: ジョン・フィッチ/マックス・フレンゼル
+translator: ローリングホフ育未
+
+atogaki:
+  type: author
+  nite: true
+  signer: マックス・フレンゼル
+  quote: ２０２３年１月 東京にて マックス・フレンゼル
+  page: null
+  date: "2023-01"
+
+place:
+  name: 東京
+  lat: 35.6812
+  lng: 139.7671
+  precision: city
+  kind: null
+
+book:
+  published: 2023
+  publisher: クロスメディア・パブリッシング
+  isbn: "9784295408116"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-03
+  contributor: null
+  notes: "共著だが署名はフレンゼルのみ。signer フィールドの初例"
