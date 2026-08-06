@@ -1,0 +1,33 @@
+# ※「地図の外」UI確認用の架空サンプル。実データが入ったらこのファイルを削除して node build.js を再実行する
+title: (サンプル)雲の上の手紙
+author: 架空太郎
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  signer: null
+  quote: 太平洋上空、機上にて。
+  page: null
+  date: null
+
+place:
+  name: 機上
+  lat: null
+  lng: null
+  precision: unmappable
+  kind: 機上
+
+book:
+  published: 2020
+  publisher: 架空書房
+  isbn: ""
+  format: print
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-07
+  contributor: null
+  notes: "架空のサンプルデータ。実データが来たら削除"

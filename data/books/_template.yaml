@@ -1,0 +1,32 @@
+# 新しい1冊はこのファイルをコピーして記入する
+title:
+author:
+translator: null
+
+atogaki:
+  type: author        # author | translator
+  nite: true          # 「にて」を含むか
+  quote:
+  page:
+  date: null
+
+place:
+  name:
+  lat: null
+  lng: null
+  precision: city     # exact | city | region | country | unmappable
+  kind: null
+
+book:
+  published:
+  publisher:
+  isbn: ""
+  format: print       # print | ebook
+
+links:
+  amazon: ""
+
+meta:
+  added:
+  contributor: null
+  notes: ""

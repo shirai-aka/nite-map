@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>〇〇にて — あとがきの地図</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif; }
+  #map { height: 100%; background: #eceae4; }
+
+  /* 地理院タイルの青をやわらげる */
+  .leaflet-tile-pane { filter: saturate(.45) brightness(1.04); }
+
+  .site-title {
+    position: absolute; top: 24px; left: 28px; z-index: 1000;
+    pointer-events: none; color: #3a352e;
+  }
+  .site-title h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .12em; }
+  .site-title p  { margin: 6px 0 0 2px; font-size: 12px; letter-spacing: .3em; color: #7a7263; }
+
+  .pin {
+    border-radius: 50%;
+    background: #3a352e; border: 2px solid #f4f1ec;
+    box-shadow: 0 0 0 1px #3a352e;
+    width: 100%; height: 100%;
+  }
+
+  .leaflet-popup-content-wrapper {
+    background: #fbf9f5; color: #3a352e;
+    border-radius: 2px; box-shadow: 0 2px 14px rgba(58,53,46,.25);
+  }
+  .leaflet-popup-tip { background: #fbf9f5; }
+  .leaflet-popup-content { margin: 20px 22px; line-height: 1.9; }
+
+  .entry + .entry { border-top: 1px solid #e3ddd2; margin-top: 16px; padding-top: 16px; }
+  .quote {
+    font-size: 15px; margin: 0 0 10px;
+    letter-spacing: .04em;
+  }
+  .bib-row { display: flex; gap: 12px; align-items: flex-start; }
+  .cover {
+    width: 42px; flex: none;
+    box-shadow: 0 1px 4px rgba(58,53,46,.35);
+  }
+  .bib { font-size: 11.5px; color: #7a7263; margin: 0; letter-spacing: .05em; }
+  .bib .title { color: #3a352e; }
+  .bib a.buy { color: #7a7263; text-decoration: underline; text-underline-offset: 3px; }
+  .bib a.buy:hover { color: #3a352e; }
+  .place-head {
+    font-size: 12px; letter-spacing: .25em; color: #7a7263;
+    margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #e3ddd2;
+  }
+
+  /* 「地図の外」コーナー */
+  .offmap-link {
+    position: absolute; bottom: 24px; left: 28px; z-index: 1000;
+    font-size: 13px; letter-spacing: .25em; color: #3a352e;
+    background: #fbf9f5; padding: 9px 16px 9px 18px; border-radius: 2px;
+    box-shadow: 0 1px 6px rgba(58,53,46,.25);
+    cursor: pointer; user-select: none; display: none;
+  }
+  .offmap-link:hover { background: #f4f0e8; }
+  .offmap-panel {
+    position: absolute; bottom: 68px; left: 28px; z-index: 1000;
+    width: 300px; max-height: 62vh; overflow-y: auto;
+    background: #fbf9f5; color: #3a352e; border-radius: 2px;
+    box-shadow: 0 2px 14px rgba(58,53,46,.25);
+    padding: 20px 22px; line-height: 1.9; display: none;
+  }
+  .offmap-panel .lead {
+    font-size: 11px; color: #7a7263; letter-spacing: .1em;
+    margin: 0 0 16px;
+  }
+  .offmap-group + .offmap-group { margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="site-title">
+  <h1>〇〇にて</h1>
+  <p>あとがきの地図</p>
+</div>
+<div id="map"></div>
+<div class="offmap-link" id="offmap-link">地図の外</div>
+<div class="offmap-panel" id="offmap-panel"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// 表示用: 引用から署名(氏名)を省く。データ上の quote は原文ママのまま
+function displayQuote(rec) {
+  const signer = rec.atogaki.signer || rec.translator || rec.author;
+  const q = rec.atogaki.quote;
+  return q === signer ? q : q.replace(signer, "").replace(/\s+/g, " ").trim();
+}
+
+const WORLD = L.latLngBounds([[-60, -180], [82, 180]]);
+
+const map = L.map("map", {
+  zoomControl: false,
+  minZoom: 2,
+  maxBounds: WORLD,
+  maxBoundsViscosity: 1.0
+});
+L.control.zoom({ position: "bottomright" }).addTo(map);
+
+// 国土地理院 淡色地図(日本語表記)
+L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+  attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+  maxZoom: 12, noWrap: true
+}).addTo(map);
+
+// 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
+async function fetchCovers(isbns) {
+  try {
+    const res = await fetch("https://api.openbd.jp/v1/get?isbn=" + isbns.join(","));
+    const data = await res.json();
+    const covers = {};
+    for (const item of data) {
+      if (item && item.summary && item.summary.cover) covers[item.summary.isbn] = item.summary.cover;
+    }
+    return covers;
+  } catch (e) {
+    return {};
+  }
+}
+
+function entryHtml(b, covers) {
+  const isbn = b.book && b.book.isbn;
+  return `<div class="entry">
+     <p class="quote">${displayQuote(b)}</p>
+     <div class="bib-row">
+       ${covers[isbn] ? `<img class="cover" src="${covers[isbn]}" alt="" onerror="this.remove()">` : ""}
+       <p class="bib"><span class="title">『${b.title}』</span><br>${b.author}${b.translator ? "(訳: " + b.translator + ")" : ""}${b.links && b.links.amazon_url ? `<br><a class="buy" href="${b.links.amazon_url}" target="_blank" rel="noopener">Amazonで見る</a>` : ""}</p>
+     </div>
+   </div>`;
+}
+
+// 「地図の外」: precision: unmappable(機上にて等)を kind ごとにまとめて出す
+function renderOffmap(offmap, covers) {
+  if (!offmap.length) return;
+  const link = document.getElementById("offmap-link");
+  const panel = document.getElementById("offmap-panel");
+
+  const kinds = {};
+  for (const b of offmap) {
+    const k = (b.place && b.place.kind) || "その他";
+    (kinds[k] ||= []).push(b);
+  }
+  panel.innerHTML =
+    `<p class="lead">地図に置けない場所で書かれた本。</p>` +
+    Object.keys(kinds).map(k =>
+      `<div class="offmap-group">
+         <p class="place-head">${k}にて</p>
+         ${kinds[k].map(b => entryHtml(b, covers)).join("")}
+       </div>`
+    ).join("");
+
+  link.style.display = "block";
+  link.addEventListener("click", () => {
+    const open = panel.style.display === "block";
+    panel.style.display = open ? "none" : "block";
+  });
+}
+
+async function init() {
+  const books = await fetch("books.json").then(r => r.json());
+  const mappable = books.filter(b => b.place && b.place.lat != null && b.place.lng != null);
+  const offmap = books.filter(b => b.place && b.place.precision === "unmappable");
+  const covers = await fetchCovers(
+    books.map(b => b.book && b.book.isbn).filter(Boolean)
+  );
+  renderOffmap(offmap, covers);
+
+  // 同一座標の本をまとめる
+  const groups = {};
+  for (const b of mappable) {
+    const key = b.place.lat + "," + b.place.lng;
+    (groups[key] ||= []).push(b);
+  }
+
+  const latlngs = [];
+  for (const key in groups) {
+    const g = groups[key];
+    const [lat, lng] = key.split(",").map(Number);
+    latlngs.push([lat, lng]);
+
+    // 冊数はドットの大きさで表す
+    const size = Math.min(12 + (g.length - 1) * 5, 26);
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="pin"></div>`,
+      iconSize: [size, size], iconAnchor: [size / 2, size / 2]
+    });
+
+    const html =
+      `<p class="place-head">${g[0].place.name}</p>` +
+      g.map(b => entryHtml(b, covers)).join("");
+
+    L.marker([lat, lng], { icon })
+      .addTo(map)
+      .bindPopup(html, { maxWidth: 320, minWidth: 260, autoPanPadding: L.point(30, 30) });
+  }
+
+  function fit() {
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(latlngs), { padding: [60, 60], animate: false });
+  }
+  // コンテナサイズ確定前だと fitBounds が壊れるため、妥当なズームになるまで再試行
+  (function ensureFit(tries) {
+    fit();
+    if (map.getZoom() > 8 && tries > 0) setTimeout(() => ensureFit(tries - 1), 200);
+  })(50);
+}
+
+init();
+</script>
+</body>
+</html>

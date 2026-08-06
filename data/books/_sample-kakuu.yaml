@@ -1,0 +1,30 @@
+# ※記入例(架空の本)。実データが入ったら削除する
+title: 遠い庭の話
+author: 架空太郎
+translator: null
+
+atogaki:
+  type: author
+  quote: 雨あがりの、金木犀の匂う小さな書斎、松本にて。
+  page: 284
+  date: "2019-10"
+
+place:
+  name: 松本
+  lat: 36.2380
+  lng: 137.9720
+  precision: city
+  kind: null
+
+book:
+  published: 2020
+  publisher: 架空書房
+  isbn: "9784000000000"
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-02
+  contributor: null
+  notes: "サンプルデータ"
