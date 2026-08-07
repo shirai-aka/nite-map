@@ -142,7 +142,16 @@ function displayQuote(rec) {
   return q === signer ? q : q.replace(signer, "").replace(/\s+/g, " ").trim();
 }
 
-const WORLD = L.latLngBounds([[-60, -180], [82, 180]]);
+// 日本を中央に置く。経度の基準を東経138度にずらすと、左にユーラシア・
+// アフリカ、右に南北アメリカが並ぶ太平洋中心の配置になる
+const CENTER_LNG = 138;
+const WEST = CENTER_LNG - 180, EAST = CENTER_LNG + 180;
+const WORLD = L.latLngBounds([[-60, WEST], [82, EAST]]);
+
+// 経度を [WEST, EAST) に畳み込む。西経のアメリカは +360 されて右側に出る
+function normLng(lng) {
+  return ((lng - WEST) % 360 + 360) % 360 + WEST;
+}
 
 const map = L.map("map", {
   zoomControl: false,
@@ -163,7 +172,9 @@ L.control.zoom({ position: "bottomright" }).addTo(map);
 // 国土地理院 淡色地図(日本語表記)
 L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
   attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
-  maxZoom: 12, noWrap: true,
+  maxZoom: 12,
+  // 日付変更線をまたいで表示するのでタイルを繰り返す
+  noWrap: false,
   // 地理院タイルは z2 未満が存在しない。縦長のスマホでは世界を収めるのに
   // z2 未満が要るため、z2 のタイルを縮小して使う
   minZoom: 0, minNativeZoom: 2
@@ -238,7 +249,7 @@ async function init() {
   // 同一座標の本をまとめる
   const groups = {};
   for (const b of mappable) {
-    const key = b.place.lat + "," + b.place.lng;
+    const key = b.place.lat + "," + normLng(b.place.lng);
     (groups[key] ||= []).push(b);
   }
 
@@ -294,7 +305,7 @@ async function init() {
 
   function renderList() {
     const list = document.getElementById("list");
-    const key = b => b.place.lat + "," + b.place.lng;
+    const key = b => b.place.lat + "," + normLng(b.place.lng);
     const byDate = (a, b) => (b.atogaki.date || "").localeCompare(a.atogaki.date || "");
     const item = (b, k) =>
       `<div class="item"${k ? ` data-key="${k}"` : ""}>${entryHtml(b, covers)}</div>`;
