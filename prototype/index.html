@@ -11,6 +11,7 @@
   html, body { height: 100%; margin: 0; }
   body { font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif; }
   #map { height: 100%; background: #eceae4; }
+  #list { display: none; }
 
   /* 地理院タイルの青をやわらげる */
   .leaflet-tile-pane { filter: saturate(.45) brightness(1.04); }
@@ -80,16 +81,45 @@
   /* パネルを開いている間はズーム操作を隠す(狭い画面で重なるため) */
   body.offmap-open .leaflet-control-zoom { display: none; }
 
+  /* スマホは「地図の帯 + 引用の一覧」の縦組みにする。
+     横長の世界地図を縦長の画面に収めると上下に大きな余白が出るため、
+     そこをメディアの主役である引用そのものに充てる */
   @media (max-width: 600px) {
-    .site-title { top: 16px; left: 18px; }
+    html, body { height: auto; }
+    body { background: #eceae4; }
+
+    .site-title {
+      position: static; padding: 20px 20px 14px;
+    }
     .site-title h1 { font-size: 20px; }
     .site-title p  { font-size: 10px; margin-top: 4px; }
-    .offmap-link  { bottom: 18px; left: 18px; font-size: 12px; padding: 8px 14px 8px 16px; }
-    .offmap-panel {
-      bottom: 58px; left: 18px; right: 18px; width: auto; max-height: 56vh;
-      padding: 18px 18px;
+
+    /* 高さは世界の縦横比から JS が px で入れる */
+    #map { height: 0; }
+
+    #list { display: block; padding: 4px 20px 40px; }
+    #list .item {
+      padding: 20px 0; border-top: 1px solid #e3ddd2;
+      cursor: pointer;
     }
-    .leaflet-popup-content { margin: 16px 18px; }
+    #list .item:first-child { border-top: none; }
+    #list .item.active { background: #f4f0e8; }
+    #list .item .quote { font-size: 15px; }
+    #list .offmap-head {
+      margin: 28px 0 0; padding-top: 20px;
+      border-top: 1px solid #cfc7b8;
+      font-size: 12px; letter-spacing: .25em; color: #7a7263;
+    }
+    #list .offmap-head + .item { border-top: none; }
+
+    .pin.active { background: #8a6a3b; box-shadow: 0 0 0 1px #8a6a3b, 0 0 0 6px rgba(138,106,59,.22); }
+
+    /* 一覧に統合するのでフローティングの「地図の外」は使わない */
+    .offmap-link, .offmap-panel { display: none !important; }
+
+    /* 狭い帯では邪魔になる。拡大縮小はピンチで足りる */
+    .leaflet-control-zoom { display: none; }
+    .leaflet-control-attribution { font-size: 9px; }
   }
 </style>
 </head>
@@ -99,6 +129,7 @@
   <p>あとがきの地図</p>
 </div>
 <div id="map"></div>
+<section id="list"></section>
 <div class="offmap-link" id="offmap-link">地図の外</div>
 <div class="offmap-panel" id="offmap-panel"></div>
 
@@ -153,6 +184,8 @@ async function fetchCovers(isbns) {
   }
 }
 
+const MOBILE = window.matchMedia("(max-width: 600px)");
+
 function entryHtml(b, covers) {
   const isbn = b.book && b.book.isbn;
   return `<div class="entry">
@@ -165,8 +198,9 @@ function entryHtml(b, covers) {
 }
 
 // 「地図の外」: precision: unmappable(機上にて等)を kind ごとにまとめて出す
+// (デスクトップのみ。スマホでは引用一覧の末尾に統合する)
 function renderOffmap(offmap, covers) {
-  if (!offmap.length) return;
+  if (!offmap.length || MOBILE.matches) return;
   const link = document.getElementById("offmap-link");
   const panel = document.getElementById("offmap-panel");
 
@@ -209,6 +243,7 @@ async function init() {
   }
 
   const latlngs = [];
+  const markers = {};
   for (const key in groups) {
     const g = groups[key];
     const [lat, lng] = key.split(",").map(Number);
@@ -222,31 +257,110 @@ async function init() {
       iconSize: [size, size], iconAnchor: [size / 2, size / 2]
     });
 
-    const html =
-      `<p class="place-head">${g[0].place.name}</p>` +
-      g.map(b => entryHtml(b, covers)).join("");
+    const marker = L.marker([lat, lng], { icon }).addTo(map);
+    markers[key] = marker;
 
-    L.marker([lat, lng], { icon })
-      .addTo(map)
-      .bindPopup(html, {
+    if (MOBILE.matches) {
+      // 狭い帯の中にポップアップを出すと窮屈なので、一覧側へ送る
+      marker.on("click", () => focusItem(key));
+    } else {
+      const html =
+        `<p class="place-head">${g[0].place.name}</p>` +
+        g.map(b => entryHtml(b, covers)).join("");
+      marker.bindPopup(html, {
         maxWidth: Math.min(320, window.innerWidth - 48),
         minWidth: Math.min(260, window.innerWidth - 48),
         autoPanPadding: L.point(20, 80)
       });
+    }
   }
 
-  function fit() {
+  // --- スマホ: 地図の下に引用を積む ---
+
+  // 世界の縦横比。地図帯をこの高さにすると上下に余白が出ない
+  function worldRatio() {
+    const nw = map.project(WORLD.getNorthWest(), 0);
+    const se = map.project(WORLD.getSouthEast(), 0);
+    return (se.y - nw.y) / (se.x - nw.x);
+  }
+
+  function layoutMobileMap() {
+    const el = document.getElementById("map");
+    el.style.height = Math.round(el.clientWidth * worldRatio()) + "px";
+    map.invalidateSize();
+    applyMinZoom();
+    map.fitBounds(WORLD, { padding: [0, 0], animate: false });
+  }
+
+  function renderList() {
+    const list = document.getElementById("list");
+    const key = b => b.place.lat + "," + b.place.lng;
+    const byDate = (a, b) => (b.atogaki.date || "").localeCompare(a.atogaki.date || "");
+    const item = (b, k) =>
+      `<div class="item"${k ? ` data-key="${k}"` : ""}>${entryHtml(b, covers)}</div>`;
+
+    list.innerHTML =
+      mappable.slice().sort(byDate).map(b => item(b, key(b))).join("") +
+      (offmap.length
+        ? `<p class="offmap-head">地図の外</p>` +
+          offmap.slice().sort(byDate).map(b => item(b, null)).join("")
+        : "");
+
+    list.addEventListener("click", e => {
+      const el = e.target.closest(".item");
+      if (!el || e.target.closest("a")) return; // Amazonリンクは素通し
+      const k = el.dataset.key;
+      if (!k) return; // 「地図の外」は飛び先がない
+      // 帯には世界全体が入っているので、視点は動かさずピンを光らせるだけでよい
+      window.scrollTo(0, 0);
+      highlightPin(k);
+    });
+  }
+
+  function highlightPin(k) {
+    document.querySelectorAll(".pin.active").forEach(p => p.classList.remove("active"));
+    const el = markers[k] && markers[k].getElement();
+    const pin = el && el.querySelector(".pin");
+    if (!pin) return;
+    pin.classList.add("active");
+    setTimeout(() => pin.classList.remove("active"), 2400);
+  }
+
+  // ピン → 一覧。その場所の最初の項目までスクロールして目印を付ける
+  function focusItem(k) {
+    const el = document.querySelector(`#list .item[data-key="${k}"]`);
+    if (!el) return;
+    document.querySelectorAll("#list .item.active").forEach(i => i.classList.remove("active"));
+    el.classList.add("active");
+    el.scrollIntoView({ block: "center" });
+    setTimeout(() => el.classList.remove("active"), 2400);
+  }
+
+  // --- デスクトップ: 画面全面の地図にピン範囲を収める ---
+
+  function fitDesktop() {
     map.invalidateSize();
     applyMinZoom();
     const pad = Math.min(60, Math.round(map.getSize().x * 0.08));
     map.fitBounds(L.latLngBounds(latlngs), { padding: [pad, pad], animate: false });
   }
+
+  function layout() {
+    if (MOBILE.matches) layoutMobileMap();
+    else fitDesktop();
+  }
+
+  if (MOBILE.matches) renderList();
+
   // コンテナサイズ確定前だと fitBounds が壊れるため、妥当なズームになるまで再試行
   (function ensureFit(tries) {
-    fit();
+    layout();
     if (map.getZoom() > 8 && tries > 0) setTimeout(() => ensureFit(tries - 1), 200);
   })(50);
-  window.addEventListener("resize", fit);
+
+  window.addEventListener("resize", layout);
+  // 600px の境界をまたいだらレイアウト方式ごと切り替える
+  MOBILE.addEventListener("change", () => window.location.reload());
 }
 
 init();
