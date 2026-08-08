@@ -13,8 +13,10 @@
   #map { height: 100%; background: #eceae4; }
   #list { display: none; }
 
-  /* 地理院タイルの青をやわらげる */
-  .leaflet-tile-pane { filter: saturate(.45) brightness(1.04); }
+  /* 実用の地図の色を、古い紙に刷られた地図の色に寄せる */
+  .leaflet-tile-pane { filter: sepia(.35) saturate(.35) brightness(1.05) contrast(.95); }
+  /* 引いた状態では海の波模様と地名が密集して騒がしいので、さらに淡くする */
+  body.far .leaflet-tile-pane { filter: sepia(.35) saturate(.28) brightness(1.09) contrast(.88); }
 
   .site-title {
     position: absolute; top: 24px; left: 28px; z-index: 1000;
@@ -169,15 +171,13 @@ function applyMinZoom() {
 }
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-// 国土地理院 淡色地図(日本語表記)
-L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
-  attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
-  maxZoom: 12,
+// OSM日本(OSMFJ)。地名はその土地の言葉で出る。海外にも街路まで入っているので
+// 拡大するほどその場所の生活が見えてくる。色はセピア調フィルタで落とす
+L.tileLayer("https://tile.openstreetmap.jp/{z}/{x}/{y}.png", {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> Contributors',
+  maxZoom: 18,
   // 日付変更線をまたいで表示するのでタイルを繰り返す
-  noWrap: false,
-  // 地理院タイルは z2 未満が存在しない。縦長のスマホでは世界を収めるのに
-  // z2 未満が要るため、z2 のタイルを縮小して使う
-  minZoom: 0, minNativeZoom: 2
+  noWrap: false
 }).addTo(map);
 
 // 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
@@ -252,6 +252,10 @@ async function init() {
     const key = b.place.lat + "," + normLng(b.place.lng);
     (groups[key] ||= []).push(b);
   }
+
+  const setFar = () => document.body.classList.toggle("far", map.getZoom() < 4);
+  map.on("zoomend", setFar);
+  setFar();
 
   const latlngs = [];
   const markers = {};

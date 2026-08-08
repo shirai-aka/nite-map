@@ -6,7 +6,21 @@
 
 - `data/books/*.yaml` — 1冊=1ファイルの採取データ。**これが資産のすべて**。書式は [SCHEMA.md](SCHEMA.md)
 - `build.js` — YAML を `prototype/books.json` に変換(依存なし、Node で実行)
-- `prototype/index.html` — 地図プロトタイプ(Leaflet + 国土地理院淡色地図 + openBD表紙)
+- `prototype/index.html` — 地図プロトタイプ(Leaflet + OSM日本タイル + openBD表紙)
+
+## 基盤地図について
+
+タイルは OSM Foundation Japan の `tile.openstreetmap.jp` を使い、CSS で
+セピア調フィルタをかけて紙の地図の色に寄せている。地名はその土地の言葉で出る
+(日本は日本語、セネガルはフランス語、米国は英語)。
+
+国土地理院の淡色地図から乗り換えた理由は、地理院タイルが日本国外をほぼ描画しない
+ため(ズーム12のダカールで地理院は事実上空白、OSM日本は約68KB)。海外で書かれた本を
+扱う以上、拡大したときにその土地の街路が見えることを優先した。
+
+ライセンスは CC-BY で「©OpenStreetMap Contributors」の表示が必須。
+無償のコミュニティ運営サーバなので、アクセスが増えた場合は自前配信か
+有償サービス(MapTiler 等。全世界日本語表記も可能)への移行を検討する。
 
 ## 1冊追加する手順
 
