@@ -15,8 +15,6 @@
 
   /* 実用の地図の色を、古い紙に刷られた地図の色に寄せる */
   .leaflet-tile-pane { filter: sepia(.35) saturate(.35) brightness(1.05) contrast(.95); }
-  /* 引いた状態では海の波模様と地名が密集して騒がしいので、さらに淡くする */
-  body.far .leaflet-tile-pane { filter: sepia(.35) saturate(.28) brightness(1.09) contrast(.88); }
 
   .site-title {
     position: absolute; top: 24px; left: 28px; z-index: 1000;
@@ -137,6 +135,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+const MOBILE = window.matchMedia("(max-width: 600px)");
+
 // 表示用: 引用から署名(氏名)を省く。データ上の quote は原文ママのまま
 function displayQuote(rec) {
   const signer = rec.atogaki.signer || rec.translator || rec.author;
@@ -178,7 +178,14 @@ L.control.zoom({ position: "bottomright" }).addTo(map);
 // 拡大するほどその場所の生活が見えてくる。色はセピア調フィルタで落とす
 L.tileLayer("https://tile.openstreetmap.jp/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> Contributors',
-  maxZoom: 18,
+  // スマホの地図帯は幅いっぱいに世界を収めるため端数ズームになり、タイルが
+  // 縮小描画されて文字がにじむ。1段深いタイルを半分の大きさで敷いて解像度を
+  // 稼ぐ(このタイルに @2x 版がないための代替手段)。
+  // 引き換えに地名は1段深い密度・小ささになるため、画面の広いデスクトップでは
+  // かえって煩雑になる。そちらは等倍のまま
+  tileSize: MOBILE.matches ? 128 : 256,
+  zoomOffset: MOBILE.matches ? 1 : 0,
+  maxZoom: MOBILE.matches ? 17 : 18,  // 要求するタイルの上限を18に合わせる
   // 日付変更線をまたいで表示するのでタイルを繰り返す
   noWrap: false
 }).addTo(map);
@@ -197,8 +204,6 @@ async function fetchCovers(isbns) {
     return {};
   }
 }
-
-const MOBILE = window.matchMedia("(max-width: 600px)");
 
 function entryHtml(b, covers) {
   const isbn = b.book && b.book.isbn;
@@ -257,10 +262,6 @@ async function init() {
     const key = b.place.lat + "," + normLng(b.place.lng);
     (groups[key] ||= []).push(b);
   }
-
-  const setFar = () => document.body.classList.toggle("far", map.getZoom() < 4);
-  map.on("zoomend", setFar);
-  setFar();
 
   const latlngs = [];
   const markers = {};
