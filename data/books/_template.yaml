@@ -4,7 +4,7 @@ author:
 translator: null
 
 atogaki:
-  type: author        # author | translator
+  type: author        # author | translator | commentary | title
   nite: true          # 「にて」を含むか
   quote:
   page:
@@ -14,8 +14,8 @@ place:
   name:
   lat: null
   lng: null
-  precision: city     # exact | city | region | country | unmappable
-  kind: null
+  precision: city     # exact | neighborhood | city | region | country | unmappable
+  kind: null          # unmappable のときの見出し文(例「機上にて」)
 
 book:
   published:

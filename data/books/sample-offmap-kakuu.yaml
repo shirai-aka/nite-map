@@ -16,7 +16,7 @@ place:
   lat: null
   lng: null
   precision: unmappable
-  kind: 機上
+  kind: 機上にて
 
 book:
   published: 2020

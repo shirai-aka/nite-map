@@ -1,0 +1,32 @@
+title: イシューからはじめよ――知的生産の「シンプルな本質」
+author: 安宅和人
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  signer: null
+  quote: 2010年10月目黒区東山の自宅にて
+  page: null
+  date: "2010-10"
+
+place:
+  name: 目黒区東山
+  lat: 35.6472
+  lng: 139.6898
+  precision: neighborhood
+  kind: null
+
+book:
+  published: 2010
+  publisher: 英治出版
+  isbn: "9784862760852"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-08
+  contributor: null
+  notes: "2024年に改訂版(9784862763563)が出ているが、この署名は2010年の初版のもの"

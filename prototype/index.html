@@ -141,7 +141,10 @@
 function displayQuote(rec) {
   const signer = rec.atogaki.signer || rec.translator || rec.author;
   const q = rec.atogaki.quote;
-  return q === signer ? q : q.replace(signer, "").replace(/\s+/g, " ").trim();
+  if (q === signer) return q;
+  // 署名を外すと行頭にダッシュや読点が残ることがあるので落とす
+  return q.replace(signer, "").replace(/\s+/g, " ").trim()
+          .replace(/^[―—–\-・、,\s]+/, "").trim();
 }
 
 // 日本を中央に置く。経度の基準を東経138度にずらすと、左にユーラシア・
@@ -217,14 +220,14 @@ function renderOffmap(offmap, covers) {
 
   const kinds = {};
   for (const b of offmap) {
-    const k = (b.place && b.place.kind) || "その他";
+    const k = (b.place && b.place.kind) || "そのほか";
     (kinds[k] ||= []).push(b);
   }
   panel.innerHTML =
     `<p class="lead">地図に置けない場所で書かれた本。</p>` +
     Object.keys(kinds).map(k =>
       `<div class="offmap-group">
-         <p class="place-head">${k}にて</p>
+         <p class="place-head">${k}</p>
          ${kinds[k].map(b => entryHtml(b, covers)).join("")}
        </div>`
     ).join("");
@@ -238,7 +241,9 @@ function renderOffmap(offmap, covers) {
 }
 
 async function init() {
-  const books = await fetch("books.json").then(r => r.json());
+  // no-cache: 毎回サーバーに問い合わせる(更新が反映されない事故を防ぐ。
+  // 中身が変わっていなければ 304 が返るので転送量は増えない)
+  const books = await fetch("books.json", { cache: "no-cache" }).then(r => r.json());
   const mappable = books.filter(b => b.place && b.place.lat != null && b.place.lng != null);
   const offmap = books.filter(b => b.place && b.place.precision === "unmappable");
   const covers = await fetchCovers(

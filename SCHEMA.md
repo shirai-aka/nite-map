@@ -12,7 +12,8 @@ author: 著者名(必須)
 translator: 訳者名(翻訳書のみ)
 
 atogaki:
-  type: author        # author(著者あとがき)| translator(訳者あとがき)| title(変則: 書名自体が「〇〇にて」)
+  type: author        # author(著者あとがき)| translator(訳者あとがき)
+                      # commentary(解説)| title(変則: 書名自体が「〇〇にて」)
   nite: true          # 「にて」を含むか。場所の記載があれば「にて」がなくても採録する
   signer: null        # 署名者名。表示時に quote から除去する。null なら translator → author の順で推定
   quote: 一行の引用    # 「〇〇にて」を含む一行。原文ママ。これがこのメディアの本体
@@ -23,8 +24,9 @@ place:
   name: 京都           # 地図に表示する地名。原文の表記を尊重する
   lat: 35.0116        # 座標。precision に応じた曖昧さでよい
   lng: 135.7681
-  precision: city     # exact | city | region | country | unmappable
-  kind: null          # precision が unmappable のときの分類: 機上 | 船上 | 病床 | 旅先 | その他
+  precision: city     # exact | neighborhood | city | region | country | unmappable
+  kind: null          # precision が unmappable のときの見出し文。「機上にて」など
+                      # そのまま表示されるので、体言止めでなく読める形で書く
 
 book:
   published: 2001     # 刊行年(手元の版でよい)
@@ -55,11 +57,16 @@ meta:
 - **place.name は原文の表記を尊重する。** 「鎌倉の寓居」とあれば「鎌倉」に
   丸めず「鎌倉の寓居」のまま。座標側で曖昧さを吸収する。
 - **precision の目安:**
-  - `exact` — 施設・番地レベルまで特定できる(まれ)
+  - `exact` — 施設・番地レベルまで特定できる(例: スタンフォード大学、穂高養生園)
+  - `neighborhood` — 町丁目・地区レベル(例: 目黒区東山)
   - `city` — 市区町村レベル(最頻。都市の中心座標でよい)
   - `region` — 都道府県・州・地方レベル
   - `country` — 国レベル
   - `unmappable` — 「機上にて」「病床にて」など地図に置けないもの。
-    lat/lng は null。サイトでは「地図の外」コーナーに載せる
+    lat/lng は null。サイトでは「地図の外」コーナーに載せる。
+    書かれた場所が記されていない場合もここに入れる(向かう先の地名を
+    執筆地として地図に置いてはいけない)
+- **1ファイル = 1つの「〇〇にて」。** 同じ本に署名行が複数あるとき
+  (上下巻、初版と改訂版の序文など)は、引用ごとにファイルを分ける。
 - **座標は厳密でなくてよい。** このメディアは「想いを馳せる地図」であって
   測量図ではない。city なら市庁舎でも駅でも中心らしき場所でよい。
