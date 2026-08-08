@@ -51,6 +51,7 @@
   .bib .title { color: #3a352e; }
   .bib a.buy { color: #7a7263; text-decoration: underline; text-underline-offset: 3px; }
   .bib a.buy:hover { color: #3a352e; }
+  .bib .sep { color: #c6bdae; margin: 0 .5em; }
   .place-head {
     font-size: 12px; letter-spacing: .25em; color: #7a7263;
     margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #e3ddd2;
@@ -207,11 +208,18 @@ async function fetchCovers(isbns) {
 
 function entryHtml(b, covers) {
   const isbn = b.book && b.book.isbn;
+  // 表紙は楽天(ビルド時に取得)を優先し、無ければ openBD
+  const cover = b.cover || covers[isbn] || "";
+  const links = b.links || {};
+  const buy = [
+    links.rakuten_url ? `<a class="buy" href="${links.rakuten_url}" target="_blank" rel="noopener">楽天ブックス</a>` : "",
+    links.amazon_url ? `<a class="buy" href="${links.amazon_url}" target="_blank" rel="noopener">Amazon</a>` : ""
+  ].filter(Boolean).join("<span class=\"sep\">/</span>");
   return `<div class="entry">
      <p class="quote">${displayQuote(b)}</p>
      <div class="bib-row">
-       ${covers[isbn] ? `<img class="cover" src="${covers[isbn]}" alt="" onerror="this.remove()">` : ""}
-       <p class="bib"><span class="title">『${b.title}』</span><br>${b.author}${b.translator ? "(訳: " + b.translator + ")" : ""}${b.links && b.links.amazon_url ? `<br><a class="buy" href="${b.links.amazon_url}" target="_blank" rel="noopener">Amazonで見る</a>` : ""}</p>
+       ${cover ? `<img class="cover" src="${cover}" alt="" onerror="this.remove()">` : ""}
+       <p class="bib"><span class="title">『${b.title}』</span><br>${b.author}${b.translator ? "(訳: " + b.translator + ")" : ""}${buy ? `<br>${buy}` : ""}</p>
      </div>
    </div>`;
 }
