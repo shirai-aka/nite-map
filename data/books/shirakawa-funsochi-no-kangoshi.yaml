@@ -1,0 +1,32 @@
+title: 紛争地の看護師
+author: 白川優子
+translator: null
+
+atogaki:
+  type: author
+  nite: false
+  signer: null
+  quote: ２０１８年６月、３度目のモスル派遣を前にして
+  page: null
+  date: "2018-06"
+
+place:
+  name: 旅立ちの前
+  lat: null
+  lng: null
+  precision: unmappable
+  kind: 旅立ちの前に
+
+book:
+  published: 2018
+  publisher: 小学館
+  isbn: "9784093897785"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-08
+  contributor: null
+  notes: "書かれた場所の記載がなく、モスルは向かう先であって執筆地ではないため「地図の外」に置いた。要判断"

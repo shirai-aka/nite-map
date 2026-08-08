@@ -1,0 +1,32 @@
+title: SELFISHNESS(セルフィッシュネス)――自分の価値を実現する
+author: アイン・ランド
+translator: 田村洋一(監訳)/オブジェクティビズム研究会
+
+atogaki:
+  type: author
+  nite: false
+  signer: アイン・ランド
+  quote: ―アイン・ランド ニューヨーク、一九七〇年十一月
+  page: null
+  date: "1970-11"
+
+place:
+  name: ニューヨーク
+  lat: 40.7127
+  lng: -74.0060
+  precision: city
+  kind: null
+
+book:
+  published: 2021
+  publisher: Evolving
+  isbn: "9784908148224"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-08
+  contributor: null
+  notes: "同じ本に署名行が2つある(1964年9月/1970年11月)。引用ごとに1ファイルとし、もう一方は rand-selfishness-1964.yaml"

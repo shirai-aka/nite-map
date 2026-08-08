@@ -12,9 +12,9 @@ atogaki:
 
 place:
   name: 穂高養生園
-  lat: 36.36
-  lng: 137.82
-  precision: city
+  lat: 36.3547
+  lng: 137.8475
+  precision: exact
   kind: null
 
 book:
@@ -29,4 +29,4 @@ links:
 meta:
   added: 2026-08-03
   contributor: null
-  notes: "刊行は版元ドットコムでは2022年3月(申告は2021年)。穂高養生園は長野県安曇野市の施設。座標は要精査"
+  notes: "刊行は版元ドットコムでは2022年3月(申告は2021年)。座標は長野県安曇野市穂高有明7258-20"
