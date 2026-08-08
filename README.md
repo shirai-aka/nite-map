@@ -37,6 +37,16 @@ node build.js
 AMAZON_TAG=あなたのタグ-22 node build.js
 ```
 
+楽天ブックスから表紙画像とアフィリエイトリンクも取る場合:
+
+```bash
+RAKUTEN_APP_ID=xxx RAKUTEN_ACCESS_KEY=xxx RAKUTEN_AFFILIATE_ID=xxx node build.js
+```
+
+取得結果は `data/rakuten-cache.json` に貯まる。2回目以降は
+キャッシュにある本を再取得しないので、鍵なしでもビルドできる。
+新しく足した本だけ取りに行く。
+
 3. プレビューで確認(ローカルサーバー経由。file:// では books.json が読めない):
 
 ```bash
@@ -45,8 +55,9 @@ python3 -m http.server 8776 --directory prototype
 
 ## 既知の課題
 
-- 表紙画像は openBD 頼みでカバー率が低い。候補は楽天ブックスAPI(無料アプリID登録のみ)か
-  Amazon PA-API(過去30日以内の発送済み売上が必要 → 2026-08 時点で要件未達のため保留)
+- 表紙画像は openBD 頼みでカバー率が低い(15冊中1冊)。楽天ブックスAPIを
+  ビルド時に呼ぶ口は用意済み(上記の環境変数)。鍵を入れれば表紙が埋まる。
+  Amazon PA-API は過去30日以内の発送済み売上が必要で、2026-08 時点は要件未達のため保留
 - Amazonリンクは build.js が ISBN-10 変換で自動生成する(PA-API不要)。
   YAML の links.amazon に手動URLを書けばそちらが優先される
 - 国会図書館の書影APIは自ドメイン以外の Referer を 403 で弾くため使えない(2026-08 時点)

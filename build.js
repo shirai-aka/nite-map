@@ -80,17 +80,101 @@ function amazonUrl(rec) {
   return `https://www.amazon.co.jp/dp/${isbn10}` + (AMAZON_TAG ? `?tag=${AMAZON_TAG}` : "");
 }
 
-const records = [];
-for (const name of fs.readdirSync(BOOKS_DIR).sort()) {
-  if (!name.endsWith(".yaml") || name.startsWith("_")) continue;
-  const text = fs.readFileSync(path.join(BOOKS_DIR, name), "utf8");
-  const rec = parseYaml(text, name);
-  validate(rec, name);
-  rec._file = name;
-  rec.links = rec.links || {};
-  rec.links.amazon_url = amazonUrl(rec);
-  records.push(rec);
+// 楽天ブックスAPI。表紙画像とアフィリエイトリンクをここ(ビルド時)で取りに行き、
+// 結果を data/rakuten-cache.json に貯める。ブラウザから呼ばないのは、
+// アプリIDが公開されてしまうのと、閲覧のたびに楽天へ問い合わせないため。
+// 資格情報は環境変数で渡す(リポジトリには入れない):
+//   RAKUTEN_APP_ID=... RAKUTEN_AFFILIATE_ID=... node build.js
+const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID || "";
+const RAKUTEN_ACCESS_KEY = process.env.RAKUTEN_ACCESS_KEY || "";
+const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID || "";
+const CACHE_FILE = path.join(__dirname, "data", "rakuten-cache.json");
+const RAKUTEN_API = "https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404";
+
+function loadCache() {
+  try {
+    return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+  } catch (e) {
+    return {};
+  }
 }
 
-fs.writeFileSync(OUT, JSON.stringify(records, null, 1), "utf8");
-console.log(`${records.length} 冊 -> ${path.relative(__dirname, OUT)}`);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function fetchRakuten(isbn) {
+  const url = new URL(RAKUTEN_API);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("applicationId", RAKUTEN_APP_ID);
+  url.searchParams.set("isbn", isbn);
+  if (RAKUTEN_AFFILIATE_ID) url.searchParams.set("affiliateId", RAKUTEN_AFFILIATE_ID);
+
+  const headers = {};
+  if (RAKUTEN_ACCESS_KEY) headers["Access-Key"] = RAKUTEN_ACCESS_KEY;
+
+  const res = await fetch(url, { headers });
+  if (res.status === 429) throw new Error("429 リクエスト過多");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const item = ((await res.json()).Items || [])[0];
+  if (!item || !item.Item) return null;
+  const it = item.Item;
+  return {
+    // 200x200 が最大。書誌欄のサムネイルには十分
+    cover: it.largeImageUrl || it.mediumImageUrl || it.smallImageUrl || "",
+    url: it.affiliateUrl || it.itemUrl || ""
+  };
+}
+
+async function enrichWithRakuten(records) {
+  const cache = loadCache();
+  if (!RAKUTEN_APP_ID) {
+    // キー未設定でもキャッシュ済みの分は使う(取得済みなら鍵なしでビルドできる)
+    let used = 0;
+    for (const rec of records) {
+      const hit = cache[rec.book && rec.book.isbn];
+      if (hit) { rec.links.rakuten_url = hit.url; rec.cover = hit.cover; used++; }
+    }
+    console.log(`楽天: RAKUTEN_APP_ID 未設定。キャッシュから ${used} 件`);
+    return;
+  }
+
+  let fetched = 0, failed = 0;
+  for (const rec of records) {
+    const isbn = rec.book && rec.book.isbn;
+    if (!isbn) continue;
+    if (!cache[isbn]) {
+      try {
+        cache[isbn] = await fetchRakuten(isbn);
+        fetched++;
+      } catch (e) {
+        console.warn(`楽天: ${isbn} 取得失敗 (${e.message})`);
+        failed++;
+      }
+      await sleep(1200); // 短時間の連続アクセスは制限されるため間隔を空ける
+    }
+    const hit = cache[isbn];
+    if (hit) { rec.links.rakuten_url = hit.url; rec.cover = hit.cover; }
+  }
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 1), "utf8");
+  console.log(`楽天: 新規取得 ${fetched} 件 / 失敗 ${failed} 件 (キャッシュ ${Object.keys(cache).length} 件)`);
+}
+
+async function main() {
+  const records = [];
+  for (const name of fs.readdirSync(BOOKS_DIR).sort()) {
+    if (!name.endsWith(".yaml") || name.startsWith("_")) continue;
+    const text = fs.readFileSync(path.join(BOOKS_DIR, name), "utf8");
+    const rec = parseYaml(text, name);
+    validate(rec, name);
+    rec._file = name;
+    rec.links = rec.links || {};
+    rec.links.amazon_url = amazonUrl(rec);
+    records.push(rec);
+  }
+
+  await enrichWithRakuten(records);
+
+  fs.writeFileSync(OUT, JSON.stringify(records, null, 1), "utf8");
+  console.log(`${records.length} 冊 -> ${path.relative(__dirname, OUT)}`);
+}
+
+main().catch(e => { console.error(e.message); process.exit(1); });
