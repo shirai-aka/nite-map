@@ -120,6 +120,18 @@
 
     /* 狭い帯では邪魔になる。拡大縮小はピンチで足りる */
     .leaflet-control-zoom { display: none; }
+
+    /* 拡大中だけ出す「全体を見る」 */
+    .world-link {
+      background: #fbf9f5; color: #3a352e;
+      font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 11px; letter-spacing: .15em;
+      padding: 7px 12px; border-radius: 2px;
+      box-shadow: 0 1px 6px rgba(58,53,46,.3);
+      cursor: pointer; user-select: none;
+      opacity: 0; pointer-events: none; transition: opacity .3s;
+    }
+    body.zoomed .world-link { opacity: 1; pointer-events: auto; }
     .leaflet-control-attribution { font-size: 9px; }
   }
 </style>
@@ -273,10 +285,12 @@ async function init() {
 
   const latlngs = [];
   const markers = {};
+  const precisions = {};
   for (const key in groups) {
     const g = groups[key];
     const [lat, lng] = key.split(",").map(Number);
     latlngs.push([lat, lng]);
+    precisions[key] = g[0].place.precision;
 
     // 冊数はドットの大きさで表す
     const size = Math.min(12 + (g.length - 1) * 5, 26);
@@ -321,6 +335,33 @@ async function init() {
     map.fitBounds(WORLD, { padding: [0, 0], animate: false });
   }
 
+  // 寄る深さは場所の精度に合わせる。「シリコンバレー」で街路まで寄っても
+  // 意味がないし、「目黒区東山」を国単位で見ても仕方がない
+  function zoomFor(precision) {
+    return { exact: 14, neighborhood: 13, city: 12, region: 9, country: 5 }[precision] || 12;
+  }
+
+  // 拡大したあと世界に戻るための導線(スマホのみ)
+  function addWorldControl() {
+    const Ctl = L.Control.extend({
+      options: { position: "bottomright" },
+      onAdd() {
+        const el = L.DomUtil.create("div", "world-link");
+        el.textContent = "全体を見る";
+        L.DomEvent.disableClickPropagation(el);
+        el.addEventListener("click", () => {
+          map.flyToBounds(WORLD, { padding: [0, 0], duration: .8 });
+        });
+        return el;
+      }
+    });
+    map.addControl(new Ctl());
+    const update = () =>
+      document.body.classList.toggle("zoomed", map.getZoom() > map.getMinZoom() + 0.3);
+    map.on("zoomend", update);
+    update();
+  }
+
   function renderList() {
     const list = document.getElementById("list");
     const key = b => b.place.lat + "," + normLng(b.place.lng);
@@ -340,8 +381,9 @@ async function init() {
       if (!el || e.target.closest("a")) return; // Amazonリンクは素通し
       const k = el.dataset.key;
       if (!k) return; // 「地図の外」は飛び先がない
-      // 帯には世界全体が入っているので、視点は動かさずピンを光らせるだけでよい
+      const [lat, lng] = k.split(",").map(Number);
       window.scrollTo(0, 0);
+      map.flyTo([lat, lng], zoomFor(precisions[k]), { duration: 1.1 });
       highlightPin(k);
     });
   }
@@ -379,7 +421,7 @@ async function init() {
     else fitDesktop();
   }
 
-  if (MOBILE.matches) renderList();
+  if (MOBILE.matches) { renderList(); addWorldControl(); }
 
   // コンテナサイズ確定前だと fitBounds が壊れるため、妥当なズームになるまで再試行
   (function ensureFit(tries) {
