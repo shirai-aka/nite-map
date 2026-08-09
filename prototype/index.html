@@ -13,8 +13,8 @@
   #map { height: 100%; background: #eceae4; }
   #list { display: none; }
 
-  /* 実用の地図の色を、古い紙に刷られた地図の色に寄せる */
-  .leaflet-tile-pane { filter: sepia(.35) saturate(.35) brightness(1.05) contrast(.95); }
+  /* 地図は見慣れたままにする。色を落とすと地形も道も判別できなくなり、
+     静かというより平坦になるため、フィルタはかけない */
 
   .site-title {
     position: absolute; top: 24px; left: 28px; z-index: 1000;
