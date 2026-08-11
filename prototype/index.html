@@ -17,9 +17,13 @@
      静かというより平坦になるため、フィルタはかけない */
 
   .site-title {
-    position: absolute; top: 24px; left: 28px; z-index: 1000;
+    position: absolute; top: 24px; left: 28px; z-index: 650;
     pointer-events: none; color: #3a352e;
+    transition: opacity .2s;
   }
+  /* 地図は全体で一つの重なり単位になるため、題字を吹き出しの下に潜らせられない。
+     重なったときだけ引っ込める */
+  body.title-hidden .site-title { opacity: 0; }
   .site-title h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .12em; }
   .site-title p  { margin: 6px 0 0 2px; font-size: 12px; letter-spacing: .3em; color: #7a7263; }
 
@@ -35,7 +39,13 @@
     border-radius: 2px; box-shadow: 0 2px 14px rgba(58,53,46,.25);
   }
   .leaflet-popup-tip { background: #fbf9f5; }
-  .leaflet-popup-content { margin: 20px 22px; line-height: 1.9; }
+  /* 1か所に何冊もあると画面より縦に長くなるので、中でスクロールさせる */
+  .leaflet-popup-content { margin: 20px 22px; line-height: 1.9; overflow-y: auto; }
+  /* 地図が寄ったあとに吹き出しが遅れて浮かび上がると動きが二度手間に
+     感じられるので、フェードはやめて寄せ終わりと同時に出す */
+  .leaflet-fade-anim .leaflet-popup { transition: none; }
+  /* 画面内に押し込んだ吹き出しは、しっぽがピンを指さなくなるので消す */
+  .leaflet-popup.shifted .leaflet-popup-tip-container { display: none; }
 
   .entry + .entry { border-top: 1px solid #e3ddd2; margin-top: 16px; padding-top: 16px; }
   .quote {
@@ -171,6 +181,50 @@ function normLng(lng) {
   return ((lng - WEST) % 360 + 360) % 360 + WEST;
 }
 
+// 世界全体が画面に収まっているときは maxBounds のせいで地図を動かせず、
+// Leaflet 標準の autoPan(地図を寄せて吹き出しを収める)が効かない。
+// そのぶん吹き出し側を画面内へずらす
+function keepPopupInView(popup) {
+  const el = popup.getElement();
+  if (!el) return;
+  const content = el.querySelector(".leaflet-popup-content");
+  const fit = () => {
+    // 縦: 吹き出しはピンの上に開くので、ピンより上に収まる高さに抑える
+    // (絶対配置の都合で上方向へはずらせないため、高さ側で合わせる)
+    if (content) {
+      const mapTop = map.getContainer().getBoundingClientRect().top;
+      const pinY = mapTop + map.latLngToContainerPoint(popup.getLatLng()).y;
+      // しっぽ・本文の余白・画面端のぶんを引く(実測に合わせた値)
+      const room = pinY - 72;
+      content.style.maxHeight = Math.max(110, Math.min(room, window.innerHeight * 0.58)) + "px";
+    }
+    // 横: 画面からはみ出す分だけ寄せる
+    el.style.marginLeft = "";
+    el.classList.remove("shifted");
+    const r = el.getBoundingClientRect();
+    const m = 12;
+    let dx = 0;
+    if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right;
+    if (r.left + dx < m) dx = m - r.left;
+    if (dx) {
+      el.style.marginLeft = Math.round(dx) + "px";
+      el.classList.add("shifted");
+    }
+
+    // 題字と重なったら題字を引っ込める
+    const t = document.querySelector(".site-title").getBoundingClientRect();
+    const p = el.getBoundingClientRect();
+    const overlap = p.left < t.right && p.right > t.left && p.top < t.bottom && p.bottom > t.top;
+    document.body.classList.toggle("title-hidden", overlap);
+  };
+  fit();
+  // 表紙画像やフォントが遅れて効くと吹き出しの寸法が変わるので、
+  // 大きさが動くたびに合わせ直す(余白の変更は寸法に影響しないので循環しない)
+  const ro = new ResizeObserver(fit);
+  ro.observe(el);
+  popup.once("remove", () => ro.disconnect());
+}
+
 const map = L.map("map", {
   zoomControl: false,
   maxBounds: WORLD,
@@ -186,6 +240,8 @@ function applyMinZoom() {
   map.setMinZoom(z);
 }
 L.control.zoom({ position: "bottomright" }).addTo(map);
+map.on("popupopen", e => keepPopupInView(e.popup));
+map.on("popupclose", () => document.body.classList.remove("title-hidden"));
 
 // OSM日本(OSMFJ)。地名はその土地の言葉で出る。海外にも街路まで入っているので
 // 拡大するほどその場所の生活が見えてくる。
@@ -201,7 +257,9 @@ L.tileLayer("https://tile.openstreetmap.jp/{z}/{x}/{y}.png", {
   zoomOffset: MOBILE.matches ? 1 : 0,
   maxZoom: MOBILE.matches ? 17 : 18,  // 要求するタイルの上限を18に合わせる
   // 日付変更線をまたいで表示するのでタイルを繰り返す
-  noWrap: false
+  noWrap: false,
+  // 画面外にも余分にタイルを持っておく。動かした瞬間に下地が見えるのを減らす
+  keepBuffer: 4
 }).addTo(map);
 
 // 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
@@ -312,9 +370,12 @@ async function init() {
         `<p class="place-head">${g[0].place.name}</p>` +
         g.map(b => entryHtml(b, covers)).join("");
       marker.bindPopup(html, {
-        maxWidth: Math.min(320, window.innerWidth - 48),
-        minWidth: Math.min(260, window.innerWidth - 48),
-        autoPanPadding: L.point(20, 80)
+        // 余白込みの実寸が画面に収まるよう、本文幅は控えめに取る
+        maxWidth: Math.min(300, window.innerWidth - 90),
+        minWidth: Math.min(260, window.innerWidth - 90),
+        // 地図を動かして収める標準動作は使わない。世界全体が入っている
+        // ときは動かせず中途半端に揺れるだけなので、吹き出し側で収める
+        autoPan: false
       });
     }
   }
