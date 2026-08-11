@@ -56,6 +56,15 @@ node --env-file=.env build.js
 新しく足した本だけ取りに行く。キャッシュがあれば `node build.js`
 (キーなし)でもビルドできる。
 
+楽天APIの注意点(2026-08 時点):
+
+- `Origin` と `Referer` が「許可されたウェブサイト」と一致しないと 403。
+  サーバー側からの呼び出しでは自動で付かないので build.js が明示している
+  (既定値は `https://shirai-aka.github.io`。`RAKUTEN_ORIGIN` で変更可)
+- アクセスキーはヘッダー名 `accessKey`(`Access-Key` では 400)
+- 絶版・旧版はISBN検索に出てこない。書名で引き直すが、別の版が
+  当たることがあるためキャッシュに `matched_by` / `matched_title` を残している
+
 3. プレビューで確認(ローカルサーバー経由。file:// では books.json が読めない):
 
 ```bash
