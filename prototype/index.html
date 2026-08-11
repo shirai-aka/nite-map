@@ -188,7 +188,8 @@ function applyMinZoom() {
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
 // OSM日本(OSMFJ)。地名はその土地の言葉で出る。海外にも街路まで入っているので
-// 拡大するほどその場所の生活が見えてくる。色はセピア調フィルタで落とす
+// 拡大するほどその場所の生活が見えてくる。
+// 海の波模様と経緯線はこのタイル自体の意匠で、こちらでは消せない
 L.tileLayer("https://tile.openstreetmap.jp/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> Contributors',
   // スマホの地図帯は幅いっぱいに世界を収めるため端数ズームになり、タイルが
