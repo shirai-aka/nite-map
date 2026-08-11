@@ -88,6 +88,9 @@ function amazonUrl(rec) {
 const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID || "";
 const RAKUTEN_ACCESS_KEY = process.env.RAKUTEN_ACCESS_KEY || "";
 const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID || "";
+// 楽天は Origin / Referer が「許可されたウェブサイト」と一致するか検査する。
+// サーバー側(このスクリプト)からの呼び出しでは自動で付かないので明示する
+const RAKUTEN_ORIGIN = process.env.RAKUTEN_ORIGIN || "https://shirai-aka.github.io";
 const CACHE_FILE = path.join(__dirname, "data", "rakuten-cache.json");
 const RAKUTEN_API = "https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404";
 
@@ -101,26 +104,72 @@ function loadCache() {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function fetchRakuten(isbn) {
+async function queryRakuten(params) {
   const url = new URL(RAKUTEN_API);
   url.searchParams.set("format", "json");
   url.searchParams.set("applicationId", RAKUTEN_APP_ID);
-  url.searchParams.set("isbn", isbn);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   if (RAKUTEN_AFFILIATE_ID) url.searchParams.set("affiliateId", RAKUTEN_AFFILIATE_ID);
 
-  const headers = {};
-  if (RAKUTEN_ACCESS_KEY) headers["Access-Key"] = RAKUTEN_ACCESS_KEY;
+  const headers = { Origin: RAKUTEN_ORIGIN, Referer: RAKUTEN_ORIGIN + "/" };
+  if (RAKUTEN_ACCESS_KEY) headers.accessKey = RAKUTEN_ACCESS_KEY;
 
   const res = await fetch(url, { headers });
   if (res.status === 429) throw new Error("429 リクエスト過多");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const item = ((await res.json()).Items || [])[0];
-  if (!item || !item.Item) return null;
-  const it = item.Item;
+  return ((await res.json()).Items || []).map(x => x.Item).filter(Boolean);
+}
+
+// 書名から副題を落とす。楽天側の表記と揺れやすいため
+function shortTitle(title) {
+  return title.split(/[―──\-—(（]/)[0].trim();
+}
+
+// 照合用に記号と空白を落とす。楽天は「ご冗談でしょう，…」のように
+// 全角カンマを使うなど、同じ本でも表記が揺れる
+function normTitle(s) {
+  return s.replace(/[\s　]/g, "")
+          .replace(/[，,、。．・：:；;！!？?（）()「」『』〈〉【】\-―──—〜~[\]]/g, "");
+}
+
+// 上下巻・巻数を取り違えないための目印
+function volumeMark(title) {
+  const m = title.match(/[（(]([上中下])[）)]/);
+  return m ? m[1] : null;
+}
+
+function pickBest(items, rec) {
+  const want = normTitle(shortTitle(rec.title));
+  const vol = volumeMark(rec.title);
+  return items.find(it => {
+    if (!normTitle(it.title).includes(want)) return false;
+    if (vol && volumeMark(it.title) !== vol) return false;
+    return true;
+  }) || null;
+}
+
+async function fetchRakuten(rec) {
+  const isbn = rec.book && rec.book.isbn;
+  let items = isbn ? await queryRakuten({ isbn }) : [];
+  let it = items[0] || null;
+  let matchedBy = "isbn";
+
+  // 絶版・旧版はISBN検索に出てこないので書名で引き直す。
+  // 別の版が当たることがあるため、どちらで一致したかを残す
+  if (!it) {
+    await sleep(1200);
+    items = await queryRakuten({ title: shortTitle(rec.title) });
+    it = pickBest(items, rec);
+    matchedBy = "title";
+  }
+  if (!it) return null;
+
   return {
     // 200x200 が最大。書誌欄のサムネイルには十分
     cover: it.largeImageUrl || it.mediumImageUrl || it.smallImageUrl || "",
-    url: it.affiliateUrl || it.itemUrl || ""
+    url: it.affiliateUrl || it.itemUrl || "",
+    matched_by: matchedBy,
+    matched_title: it.title
   };
 }
 
@@ -143,7 +192,7 @@ async function enrichWithRakuten(records) {
     if (!isbn) continue;
     if (!cache[isbn]) {
       try {
-        cache[isbn] = await fetchRakuten(isbn);
+        cache[isbn] = await fetchRakuten(rec);
         fetched++;
       } catch (e) {
         console.warn(`楽天: ${isbn} 取得失敗 (${e.message})`);
