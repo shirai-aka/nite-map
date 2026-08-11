@@ -2,5 +2,8 @@
 node_modules/
 .claude/settings.local.json
 
+# APIキー。絶対にコミットしない(雛形は .env.example)
+.env
+
 # build.js の生成物(data/books/*.yaml が原本)
 prototype/books.json

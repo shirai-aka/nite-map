@@ -37,21 +37,24 @@ Google マップも検討したが、利用開始に Google Cloud の請求先�
 node build.js
 ```
 
-アソシエイトタグ付きのAmazonリンクを生成する場合:
+### APIキーを使う場合(楽天の書影・アフィリエイト、Amazonタグ)
+
+最初に一度だけ、雛形をコピーしてキーを書き込む:
 
 ```bash
-AMAZON_TAG=あなたのタグ-22 node build.js
+cp .env.example .env
 ```
 
-楽天ブックスから表紙画像とアフィリエイトリンクも取る場合:
+`.env` を編集して値を入れたら、以降はこのコマンドでビルドする:
 
 ```bash
-RAKUTEN_APP_ID=xxx RAKUTEN_ACCESS_KEY=xxx RAKUTEN_AFFILIATE_ID=xxx node build.js
+node --env-file=.env build.js
 ```
 
-取得結果は `data/rakuten-cache.json` に貯まる。2回目以降は
-キャッシュにある本を再取得しないので、鍵なしでもビルドできる。
-新しく足した本だけ取りに行く。
+`.env` は `.gitignore` 済みなのでコミットされない。
+楽天の取得結果は `data/rakuten-cache.json` に貯まり、2回目以降は
+新しく足した本だけ取りに行く。キャッシュがあれば `node build.js`
+(キーなし)でもビルドできる。
 
 3. プレビューで確認(ローカルサーバー経由。file:// では books.json が読めない):
 
