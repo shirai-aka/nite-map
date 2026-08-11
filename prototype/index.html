@@ -10,22 +10,41 @@
 <style>
   html, body { height: 100%; margin: 0; }
   body { font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif; }
-  #map { height: 100%; background: #eceae4; }
   #list { display: none; }
 
   /* 地図は見慣れたままにする。色を落とすと地形も道も判別できなくなり、
      静かというより平坦になるため、フィルタはかけない */
 
-  .site-title {
-    position: absolute; top: 24px; left: 28px; z-index: 650;
-    pointer-events: none; color: #3a352e;
-    transition: opacity .2s;
+  /* 左が地図、右が読み物。吹き出しのように位置が動く器をやめたので、
+     題字・画面端・ピンと場所を奪い合うことがなくなる */
+  #map {
+    position: absolute; top: 0; left: 0; right: var(--panel-w); bottom: 0;
+    background: #eceae4;
   }
-  /* 地図は全体で一つの重なり単位になるため、題字を吹き出しの下に潜らせられない。
-     重なったときだけ引っ込める */
-  body.title-hidden .site-title { opacity: 0; }
+  #panel {
+    --panel-w: 400px;
+    position: absolute; top: 0; right: 0; bottom: 0; width: var(--panel-w);
+    box-sizing: border-box; padding: 30px 32px 44px;
+    background: #fbf9f5; border-left: 1px solid #e3ddd2;
+    color: #3a352e; overflow-y: auto;
+  }
+  :root { --panel-w: 400px; }
+
+  .site-title { color: #3a352e; }
   .site-title h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .12em; }
   .site-title p  { margin: 6px 0 0 2px; font-size: 12px; letter-spacing: .3em; color: #7a7263; }
+  #panel .site-title {
+    margin-bottom: 26px; padding-bottom: 22px; border-bottom: 1px solid #e3ddd2;
+  }
+
+  /* 何も選んでいないときの案内。ここがこのメディアの説明を兼ねる */
+  #panel .lead { font-size: 13px; line-height: 2.1; color: #5c554a; margin: 0 0 24px; }
+  #panel .stats { font-size: 11.5px; letter-spacing: .14em; color: #7a7263; line-height: 2.2; margin: 0; }
+
+  /* 引用が主役。書名や著者はひとまわり小さく沈める */
+  #panel .quote { font-size: 19px; line-height: 2.05; margin: 0 0 22px; }
+  #panel .cover { width: 64px; }
+  #panel .entry + .entry { margin-top: 32px; padding-top: 32px; }
 
   .pin {
     border-radius: 50%;
@@ -33,19 +52,10 @@
     box-shadow: 0 0 0 1px #3a352e;
     width: 100%; height: 100%;
   }
-
-  .leaflet-popup-content-wrapper {
-    background: #fbf9f5; color: #3a352e;
-    border-radius: 2px; box-shadow: 0 2px 14px rgba(58,53,46,.25);
+  .pin.active {
+    background: #8a6a3b;
+    box-shadow: 0 0 0 1px #8a6a3b, 0 0 0 6px rgba(138,106,59,.22);
   }
-  .leaflet-popup-tip { background: #fbf9f5; }
-  /* 1か所に何冊もあると画面より縦に長くなるので、中でスクロールさせる */
-  .leaflet-popup-content { margin: 20px 22px; line-height: 1.9; overflow-y: auto; }
-  /* 地図が寄ったあとに吹き出しが遅れて浮かび上がると動きが二度手間に
-     感じられるので、フェードはやめて寄せ終わりと同時に出す */
-  .leaflet-fade-anim .leaflet-popup { transition: none; }
-  /* 画面内に押し込んだ吹き出しは、しっぽがピンを指さなくなるので消す */
-  .leaflet-popup.shifted .leaflet-popup-tip-container { display: none; }
 
   .entry + .entry { border-top: 1px solid #e3ddd2; margin-top: 16px; padding-top: 16px; }
   .quote {
@@ -76,21 +86,7 @@
     cursor: pointer; user-select: none; display: none;
   }
   .offmap-link:hover { background: #f4f0e8; }
-  .offmap-panel {
-    position: absolute; bottom: 68px; left: 28px; z-index: 1000;
-    width: 300px; max-height: 62vh; overflow-y: auto;
-    background: #fbf9f5; color: #3a352e; border-radius: 2px;
-    box-shadow: 0 2px 14px rgba(58,53,46,.25);
-    padding: 20px 22px; line-height: 1.9; display: none;
-  }
-  .offmap-panel .lead {
-    font-size: 11px; color: #7a7263; letter-spacing: .1em;
-    margin: 0 0 16px;
-  }
-  .offmap-group + .offmap-group { margin-top: 20px; }
-
-  /* パネルを開いている間はズーム操作を隠す(狭い画面で重なるため) */
-  body.offmap-open .leaflet-control-zoom { display: none; }
+  .offmap-group + .offmap-group { margin-top: 28px; }
 
   /* スマホは「地図の帯 + 引用の一覧」の縦組みにする。
      横長の世界地図を縦長の画面に収めると上下に大きな余白が出るため、
@@ -99,14 +95,20 @@
     html, body { height: auto; }
     body { background: #eceae4; }
 
-    .site-title {
-      position: static; padding: 20px 20px 14px;
+    /* 右の読み物パネルは使わない。題字だけを見出しとして残す */
+    #panel {
+      position: static; width: auto; padding: 0;
+      background: transparent; border-left: none; overflow: visible;
+    }
+    #panel-body { display: none; }
+    #panel .site-title {
+      padding: 20px 20px 14px; margin: 0; border-bottom: none;
     }
     .site-title h1 { font-size: 20px; }
     .site-title p  { font-size: 10px; margin-top: 4px; }
 
     /* 高さは世界の縦横比から JS が px で入れる */
-    #map { height: 0; }
+    #map { position: static; right: auto; height: 0; }
 
     #list { display: block; padding: 4px 20px 40px; }
     #list .item {
@@ -123,10 +125,8 @@
     }
     #list .offmap-head + .item { border-top: none; }
 
-    .pin.active { background: #8a6a3b; box-shadow: 0 0 0 1px #8a6a3b, 0 0 0 6px rgba(138,106,59,.22); }
-
     /* 一覧に統合するのでフローティングの「地図の外」は使わない */
-    .offmap-link, .offmap-panel { display: none !important; }
+    .offmap-link { display: none !important; }
 
     /* 狭い帯では邪魔になる。拡大縮小はピンチで足りる */
     .leaflet-control-zoom { display: none; }
@@ -147,14 +147,16 @@
 </style>
 </head>
 <body>
-<div class="site-title">
-  <h1>〇〇にて</h1>
-  <p>あとがきの地図</p>
-</div>
+<aside id="panel">
+  <div class="site-title">
+    <h1>〇〇にて</h1>
+    <p>あとがきの地図</p>
+  </div>
+  <div id="panel-body"></div>
+</aside>
 <div id="map"></div>
 <section id="list"></section>
 <div class="offmap-link" id="offmap-link">地図の外</div>
-<div class="offmap-panel" id="offmap-panel"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -181,50 +183,6 @@ function normLng(lng) {
   return ((lng - WEST) % 360 + 360) % 360 + WEST;
 }
 
-// 世界全体が画面に収まっているときは maxBounds のせいで地図を動かせず、
-// Leaflet 標準の autoPan(地図を寄せて吹き出しを収める)が効かない。
-// そのぶん吹き出し側を画面内へずらす
-function keepPopupInView(popup) {
-  const el = popup.getElement();
-  if (!el) return;
-  const content = el.querySelector(".leaflet-popup-content");
-  const fit = () => {
-    // 縦: 吹き出しはピンの上に開くので、ピンより上に収まる高さに抑える
-    // (絶対配置の都合で上方向へはずらせないため、高さ側で合わせる)
-    if (content) {
-      const mapTop = map.getContainer().getBoundingClientRect().top;
-      const pinY = mapTop + map.latLngToContainerPoint(popup.getLatLng()).y;
-      // しっぽ・本文の余白・画面端のぶんを引く(実測に合わせた値)
-      const room = pinY - 72;
-      content.style.maxHeight = Math.max(110, Math.min(room, window.innerHeight * 0.58)) + "px";
-    }
-    // 横: 画面からはみ出す分だけ寄せる
-    el.style.marginLeft = "";
-    el.classList.remove("shifted");
-    const r = el.getBoundingClientRect();
-    const m = 12;
-    let dx = 0;
-    if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right;
-    if (r.left + dx < m) dx = m - r.left;
-    if (dx) {
-      el.style.marginLeft = Math.round(dx) + "px";
-      el.classList.add("shifted");
-    }
-
-    // 題字と重なったら題字を引っ込める
-    const t = document.querySelector(".site-title").getBoundingClientRect();
-    const p = el.getBoundingClientRect();
-    const overlap = p.left < t.right && p.right > t.left && p.top < t.bottom && p.bottom > t.top;
-    document.body.classList.toggle("title-hidden", overlap);
-  };
-  fit();
-  // 表紙画像やフォントが遅れて効くと吹き出しの寸法が変わるので、
-  // 大きさが動くたびに合わせ直す(余白の変更は寸法に影響しないので循環しない)
-  const ro = new ResizeObserver(fit);
-  ro.observe(el);
-  popup.once("remove", () => ro.disconnect());
-}
-
 const map = L.map("map", {
   zoomControl: false,
   maxBounds: WORLD,
@@ -240,8 +198,6 @@ function applyMinZoom() {
   map.setMinZoom(z);
 }
 L.control.zoom({ position: "bottomright" }).addTo(map);
-map.on("popupopen", e => keepPopupInView(e.popup));
-map.on("popupclose", () => document.body.classList.remove("title-hidden"));
 
 // OSM日本(OSMFJ)。地名はその土地の言葉で出る。海外にも街路まで入っているので
 // 拡大するほどその場所の生活が見えてくる。
@@ -295,33 +251,46 @@ function entryHtml(b, covers) {
    </div>`;
 }
 
+// --- 右の読み物パネル(デスクトップ) ---
+
+const panelBody = () => document.getElementById("panel-body");
+
+function setPanel(html) {
+  panelBody().innerHTML = html;
+  document.getElementById("panel").scrollTop = 0;
+}
+
+// 何も選んでいないとき。ここがこのメディアの説明と規模を兼ねる
+function showIntro(stats) {
+  setPanel(
+    `<p class="lead">本のあとがきに書かれた「〇〇にて」を集めています。<br>
+      地図の点をたどると、その本が書かれた場所に行き当たります。</p>
+     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所<br>${stats.from}年 — ${stats.to}年</p>`
+  );
+}
+
+function showPlace(name, list, covers) {
+  setPanel(`<p class="place-head">${name}</p>` + list.map(b => entryHtml(b, covers)).join(""));
+}
+
 // 「地図の外」: precision: unmappable(機上にて等)を kind ごとにまとめて出す
 // (デスクトップのみ。スマホでは引用一覧の末尾に統合する)
-function renderOffmap(offmap, covers) {
-  if (!offmap.length || MOBILE.matches) return;
-  const link = document.getElementById("offmap-link");
-  const panel = document.getElementById("offmap-panel");
-
+function showOffmap(offmap, covers) {
   const kinds = {};
   for (const b of offmap) {
     const k = (b.place && b.place.kind) || "そのほか";
     (kinds[k] ||= []).push(b);
   }
-  panel.innerHTML =
+  setPanel(
+    `<p class="place-head">地図の外</p>` +
     `<p class="lead">地図に置けない場所で書かれた本。</p>` +
     Object.keys(kinds).map(k =>
       `<div class="offmap-group">
          <p class="place-head">${k}</p>
          ${kinds[k].map(b => entryHtml(b, covers)).join("")}
        </div>`
-    ).join("");
-
-  link.style.display = "block";
-  link.addEventListener("click", () => {
-    const open = panel.style.display === "block";
-    panel.style.display = open ? "none" : "block";
-    document.body.classList.toggle("offmap-open", !open);
-  });
+    ).join("")
+  );
 }
 
 async function init() {
@@ -333,7 +302,6 @@ async function init() {
   const covers = await fetchCovers(
     books.map(b => b.book && b.book.isbn).filter(Boolean)
   );
-  renderOffmap(offmap, covers);
 
   // 同一座標の本をまとめる
   const groups = {};
@@ -366,18 +334,18 @@ async function init() {
       // 狭い帯の中にポップアップを出すと窮屈なので、一覧側へ送る
       marker.on("click", () => focusItem(key));
     } else {
-      const html =
-        `<p class="place-head">${g[0].place.name}</p>` +
-        g.map(b => entryHtml(b, covers)).join("");
-      marker.bindPopup(html, {
-        // 余白込みの実寸が画面に収まるよう、本文幅は控えめに取る
-        maxWidth: Math.min(300, window.innerWidth - 90),
-        minWidth: Math.min(260, window.innerWidth - 90),
-        // 地図を動かして収める標準動作は使わない。世界全体が入っている
-        // ときは動かせず中途半端に揺れるだけなので、吹き出し側で収める
-        autoPan: false
+      marker.on("click", () => {
+        selectPin(key);
+        showPlace(g[0].place.name, g, covers);
       });
     }
+  }
+
+  function selectPin(key) {
+    document.querySelectorAll(".pin.active").forEach(p => p.classList.remove("active"));
+    const el = key && markers[key] && markers[key].getElement();
+    const pin = el && el.querySelector(".pin");
+    if (pin) pin.classList.add("active");
   }
 
   // --- スマホ: 地図の下に引用を積む ---
@@ -483,7 +451,27 @@ async function init() {
     else fitDesktop();
   }
 
-  if (MOBILE.matches) { renderList(); addWorldControl(); }
+  if (MOBILE.matches) {
+    renderList();
+    addWorldControl();
+  } else {
+    const years = books.map(b => b.atogaki.date).filter(Boolean)
+                       .map(d => Number(String(d).slice(0, 4)));
+    const stats = {
+      quotes: books.length,
+      places: Object.keys(groups).length,
+      from: Math.min(...years), to: Math.max(...years)
+    };
+    showIntro(stats);
+    // 地図の余白を押したら選択を解いて案内に戻す
+    map.on("click", () => { selectPin(null); showIntro(stats); });
+
+    const link = document.getElementById("offmap-link");
+    if (offmap.length) {
+      link.style.display = "block";
+      link.addEventListener("click", () => { selectPin(null); showOffmap(offmap, covers); });
+    }
+  }
 
   // コンテナサイズ確定前だと fitBounds が壊れるため、妥当なズームになるまで再試行
   (function ensureFit(tries) {
