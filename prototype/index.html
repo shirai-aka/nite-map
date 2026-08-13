@@ -46,20 +46,17 @@
   #panel .cover { width: 64px; }
   #panel .entry + .entry { margin-top: 32px; padding-top: 32px; }
 
-  /* 題字の「〇」に呼応した輪。紙色で抜いて地図の上でも読めるようにする */
+  /* ピンは栞。下端の切り込みがその地点を指す。
+     塗りは color で決め、選択中だけ朱に変える */
   .pin {
-    border-radius: 50%;
-    background: #fbf9f5; border: 2px solid #3a352e;
-    box-shadow: 0 1px 3px rgba(58,53,46,.35);
     width: 100%; height: 100%;
-    box-sizing: border-box;
-    transition: background .15s, border-color .15s;
+    color: #7a5a3c;
+    transition: color .15s;
+    filter: drop-shadow(0 1px 2px rgba(58,53,46,.35));
   }
-  .pin:hover { background: #e6ded0; }
-  .pin.active {
-    background: #8a6a3b; border-color: #6f5330;
-    box-shadow: 0 1px 3px rgba(58,53,46,.35), 0 0 0 6px rgba(138,106,59,.2);
-  }
+  .pin svg { display: block; width: 100%; height: 100%; }
+  .pin:hover { color: #5d4429; }
+  .pin.active { color: #b0522e; }
 
   .entry + .entry { border-top: 1px solid #e3ddd2; margin-top: 16px; padding-top: 16px; }
   .quote {
@@ -251,6 +248,14 @@ async function fetchCovers(isbns) {
   }
 }
 
+// 栞の形。紙色の縁取りで、色の濃い地図の上でも輪郭が残るようにする
+function shioriHtml() {
+  return `<div class="pin"><svg viewBox="0 0 12 18">
+    <path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z"
+          fill="currentColor" stroke="#fbf9f5" stroke-width="1.3" stroke-linejoin="round"/>
+  </svg></div>`;
+}
+
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
                           .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -354,12 +359,14 @@ async function init() {
     latlngs.push([lat, lng]);
     precisions[key] = g[0].place.precision;
 
-    // 冊数はドットの大きさで表す
-    const size = Math.min(12 + (g.length - 1) * 5, 26);
+    // 冊数は栞の大きさで表す。下端の切り込みが地点を指すので、
+    // 中心ではなく下端を座標に合わせる
+    const w = Math.min(15 + (g.length - 1) * 4, 26);
+    const h = Math.round(w * 1.5);
     const icon = L.divIcon({
       className: "",
-      html: `<div class="pin"></div>`,
-      iconSize: [size, size], iconAnchor: [size / 2, size / 2]
+      html: shioriHtml(),
+      iconSize: [w, h], iconAnchor: [w / 2, h]
     });
 
     const marker = L.marker([lat, lng], { icon }).addTo(map);
