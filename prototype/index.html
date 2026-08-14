@@ -156,18 +156,20 @@
     /* 一覧に統合するのでフローティングの「地図の外」は使わない */
     .offmap-link { display: none !important; }
 
-    /* 拡大中だけ出す「全体を見る」 */
-    .world-link {
-      background: #fbf9f5; color: #3a352e;
-      font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif;
-      font-size: 11px; letter-spacing: .15em;
-      padding: 7px 12px; border-radius: 2px;
-      box-shadow: 0 1px 6px rgba(58,53,46,.3);
-      cursor: pointer; user-select: none;
-      opacity: 0; pointer-events: none; transition: opacity .3s;
-    }
-    body.zoomed .world-link { opacity: 1; pointer-events: auto; }
   }
+
+  /* 拡大中だけ出す「全体を見る」 */
+  .world-link {
+    background: #fbf9f5; color: #3a352e;
+    font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif;
+    font-size: 12px; letter-spacing: .15em;
+    padding: 8px 14px; margin: 10px; border-radius: 2px;
+    box-shadow: 0 1px 6px rgba(58,53,46,.3);
+    cursor: pointer; user-select: none;
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+  }
+  .world-link:hover { background: #f4f0e8; }
+  body.zoomed .world-link { opacity: 1; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -394,8 +396,11 @@ async function init() {
     markers[key] = marker;
 
     // 新しいマーカーは gmp-click。click は非推奨警告が出る
+    // 画面の広さによらず、栞を選んだらその場所へ寄る。
+    // 読み物の出し先だけが違う(スマホは地図の真下、デスクトップは右のパネル)
     marker.addListener("gmp-click", () => {
       selectPin(key);
+      zoomToPlace(key);
       if (MOBILE.matches) openPlace(key, g);
       else showPlace(g[0].place.name, g, covers);
     });
@@ -414,10 +419,13 @@ async function init() {
 
   // --- スマホ: 栞をタップしたら、寄って、その本を地図のすぐ下に出す ---
 
-  function openPlace(key, g) {
+  function zoomToPlace(key) {
     const [lat, lng] = key.split(",").map(Number);
     map.setZoom(zoomFor(precisions[key]));
     map.panTo({ lat, lng });
+  }
+
+  function openPlace(key, g) {
     document.getElementById("detail").innerHTML =
       `<p class="place-head">${g[0].place.name}</p>` +
       g.map(b => entryHtml(b, covers)).join("");
@@ -457,12 +465,12 @@ async function init() {
     return { exact: 14, neighborhood: 13, city: 12, region: 9, country: 5 }[precision] || 12;
   }
 
-  // 拡大したあと世界に戻るための導線(スマホのみ)
-  function addWorldControl() {
+  // 拡大したあと世界に戻るための導線
+  function addWorldControl(onReset) {
     const el = document.createElement("div");
     el.className = "world-link";
     el.textContent = "全体を見る";
-    el.addEventListener("click", showWorld);
+    el.addEventListener("click", () => { showWorld(); if (onReset) onReset(); });
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(el);
     map.addListener("zoom_changed", () =>
       document.body.classList.toggle("zoomed", map.getZoom() > worldZ + 0.3));
@@ -517,9 +525,11 @@ async function init() {
       places: Object.keys(groups).length,
       from: Math.min(...years), to: Math.max(...years)
     };
+    const reset = () => { selectPin(null); showIntro(stats); };
     showIntro(stats);
-    // 地図の余白を押したら選択を解いて案内に戻す
-    map.addListener("click", () => { selectPin(null); showIntro(stats); });
+    addWorldControl(reset);
+    // 地図の余白を押したら選択を解いて案内に戻す(視点はそのまま)
+    map.addListener("click", reset);
 
     const link = document.getElementById("offmap-link");
     if (offmap.length) {
