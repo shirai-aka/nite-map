@@ -8,7 +8,23 @@
 - `build.js` — YAML を `prototype/books.json` に変換(依存なし、Node で実行)
 - `prototype/index.html` — 地図プロトタイプ(Leaflet + OSM日本タイル + openBD表紙)
 
-## 基盤地図について
+## 地図について(Google Maps)
+
+Maps JavaScript API を使う。キーと Map ID は `.env` に置き、`build.js` が
+`prototype/config.js` を書き出してブラウザへ渡す(config.js は .gitignore 済み)。
+
+- 地名は全世界が日本語(`language=ja&region=JP`)
+- ピン(栞)は Advanced Markers を使うため **Map ID が必須**
+- 日本を中央に置くのは中心経度を138度にするだけでよい(世界が横に繰り返すため)
+- 課金対策として、Google Cloud 側で **1日あたりの割り当てを300回程度に制限**している。
+  上限に達するとリクエストが止まり、課金には進まない
+- キーは「ウェブサイトの制限」で `http://localhost:8776/*` と公開先URLのみ許可
+
+注意: プレビュー枠(Claude Code のブラウザペイン)では requestAnimationFrame が
+動かないため、Google の地図は描画されない。確認は通常のブラウザで
+`http://localhost:8776` を開いて行う。
+
+## 以前の基盤地図について(参考)
 
 タイルは OSM Foundation Japan の `tile.openstreetmap.jp` をそのまま使う。
 地名はその土地の言葉で出る(日本は日本語、セネガルはフランス語、米国は英語)。

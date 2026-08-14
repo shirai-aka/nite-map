@@ -207,7 +207,23 @@ async function enrichWithRakuten(records) {
   console.log(`楽天: 新規取得 ${fetched} 件 / 失敗 ${failed} 件 (キャッシュ ${Object.keys(cache).length} 件)`);
 }
 
+// 地図のキーはブラウザに渡す必要があるが、リポジトリには置かない。
+// .env から読んで config.js を書き出す(config.js は .gitignore 済み)
+function writeConfig() {
+  const cfg = {
+    googleMapsKey: process.env.GOOGLE_MAPS_KEY || "",
+    googleMapsMapId: process.env.GOOGLE_MAPS_MAP_ID || ""
+  };
+  fs.writeFileSync(
+    path.join(__dirname, "prototype", "config.js"),
+    "window.NITE_CONFIG = " + JSON.stringify(cfg) + ";\n",
+    "utf8"
+  );
+  console.log(cfg.googleMapsKey ? "地図: キーを config.js に書き出した" : "地図: キー未設定(config.js は空)");
+}
+
 async function main() {
+  writeConfig();
   const records = [];
   for (const name of fs.readdirSync(BOOKS_DIR).sort()) {
     if (!name.endsWith(".yaml") || name.startsWith("_")) continue;

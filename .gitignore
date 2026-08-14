@@ -7,3 +7,6 @@ node_modules/
 
 # build.js の生成物(data/books/*.yaml が原本)
 prototype/books.json
+
+# build.js が .env から書き出す。APIキーを含むのでコミットしない
+prototype/config.js

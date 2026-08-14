@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>〇〇にて — あとがきの地図</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -143,9 +142,6 @@
     /* 一覧に統合するのでフローティングの「地図の外」は使わない */
     .offmap-link { display: none !important; }
 
-    /* 狭い帯では邪魔になる。拡大縮小はピンチで足りる */
-    .leaflet-control-zoom { display: none; }
-
     /* 拡大中だけ出す「全体を見る」 */
     .world-link {
       background: #fbf9f5; color: #3a352e;
@@ -157,7 +153,6 @@
       opacity: 0; pointer-events: none; transition: opacity .3s;
     }
     body.zoomed .world-link { opacity: 1; pointer-events: auto; }
-    .leaflet-control-attribution { font-size: 9px; }
   }
 </style>
 </head>
@@ -173,7 +168,7 @@
 <section id="list"></section>
 <div class="offmap-link" id="offmap-link">地図の外</div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
 <script>
 const MOBILE = window.matchMedia("(max-width: 600px)");
 
@@ -187,51 +182,32 @@ function displayQuote(rec) {
           .replace(/^[―—–\-・、,\s]+/, "").trim();
 }
 
-// 日本を中央に置く。経度の基準を東経138度にずらすと、左にユーラシア・
-// アフリカ、右に南北アメリカが並ぶ太平洋中心の配置になる
+// 日本を中央に置く。Googleの地図は世界が横に繰り返すので、中心の経度を
+// 東経138度にするだけで、左にユーラシア・アフリカ、右にアメリカが並ぶ
 const CENTER_LNG = 138;
-const WEST = CENTER_LNG - 180, EAST = CENTER_LNG + 180;
-const WORLD = L.latLngBounds([[-60, WEST], [82, EAST]]);
+const WORLD_NORTH = 82, WORLD_SOUTH = -60;
+const TILE = 256;
 
-// 経度を [WEST, EAST) に畳み込む。西経のアメリカは +360 されて右側に出る
-function normLng(lng) {
-  return ((lng - WEST) % 360 + 360) % 360 + WEST;
+let map;
+
+// メルカトルの正規化y座標(0が北端、1が南端)
+function mercY(lat) {
+  const s = Math.sin(lat * Math.PI / 180);
+  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+}
+function mercLat(y) {
+  const n = Math.PI * (1 - 2 * y);
+  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
 }
 
-const map = L.map("map", {
-  zoomControl: false,
-  maxBounds: WORLD,
-  maxBoundsViscosity: 1.0,
-  // 整数ズームだけだと画面幅に対して地図が小さく収まりすぎる
-  zoomSnap: 0.25
-});
+// 表示したい世界(南緯60度〜北緯82度)の高さと中心緯度
+const WORLD_H = mercY(WORLD_SOUTH) - mercY(WORLD_NORTH);
+const WORLD_CENTER_LAT = mercLat((mercY(WORLD_SOUTH) + mercY(WORLD_NORTH)) / 2);
 
-// 引ける限界は「世界が画面に収まるズーム」。固定値にすると
-// 縦長のスマホで世界が収まりきらず、ピンが画面外に出る
-function applyMinZoom() {
-  const z = map.getBoundsZoom(WORLD, false);
-  map.setMinZoom(z);
+// この幅と高さに世界が収まるズーム
+function worldZoom(w, h) {
+  return Math.min(Math.log2(w / TILE), Math.log2(h / (TILE * WORLD_H)));
 }
-L.control.zoom({ position: "bottomright" }).addTo(map);
-
-// OSM日本(OSMFJ)。地名はその土地の言葉で出る。海外にも街路まで入っているので
-// 拡大するほどその場所の生活が見えてくる。
-// 海の波模様と経緯線はこのタイル自体の意匠で、こちらでは消せない
-L.tileLayer("https://tile.openstreetmap.jp/{z}/{x}/{y}.png", {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> Contributors',
-  // スマホの地図帯は幅いっぱいに世界を収めるため端数ズームになり、タイルが
-  // 縮小描画されて文字がにじむ。1段深いタイルを半分の大きさで敷いて解像度を
-  // 稼ぐ(このタイルに @2x 版がないための代替手段)。
-  // 引き換えに地名は1段深い密度・小ささになるため、画面の広いデスクトップでは
-  // かえって煩雑になる。そちらは等倍のまま
-  tileSize: MOBILE.matches ? 128 : 256,
-  zoomOffset: MOBILE.matches ? 1 : 0,
-  maxZoom: MOBILE.matches ? 17 : 18,  // 要求するタイルの上限を18に合わせる
-  // 日付変更線をまたいで表示するのでタイルを繰り返す
-  noWrap: false,
-  // 画面外にも余分にタイルを持っておく。動かした瞬間に下地が見えるのを減らす
-  keepBuffer: 4
-}).addTo(map);
 
 // 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
 async function fetchCovers(isbns) {
@@ -248,12 +224,19 @@ async function fetchCovers(isbns) {
   }
 }
 
-// 栞の形。紙色の縁取りで、色の濃い地図の上でも輪郭が残るようにする
-function shioriHtml() {
-  return `<div class="pin"><svg viewBox="0 0 12 18">
+// 栞の形。紙色の縁取りで、色の濃い地図の上でも輪郭が残るようにする。
+// 下端の切り込みが地点を指すので、要素の下端が座標に合うよう配置する
+function shioriElement(count) {
+  const w = Math.min(15 + (count - 1) * 4, 26);
+  const el = document.createElement("div");
+  el.className = "pin";
+  el.style.width = w + "px";
+  el.style.height = Math.round(w * 1.5) + "px";
+  el.innerHTML = `<svg viewBox="0 0 12 18">
     <path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z"
           fill="currentColor" stroke="#fbf9f5" stroke-width="1.3" stroke-linejoin="round"/>
-  </svg></div>`;
+  </svg>`;
+  return el;
 }
 
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -343,68 +326,88 @@ async function init() {
     books.map(b => b.book && b.book.isbn).filter(Boolean)
   );
 
+  // 地図を作る
+  const mapEl = document.getElementById("map");
+  const z0 = worldZoom(mapEl.clientWidth || 800, mapEl.clientHeight || 600);
+  map = new google.maps.Map(mapEl, {
+    mapId: (window.NITE_CONFIG || {}).googleMapsMapId,
+    center: { lat: WORLD_CENTER_LAT, lng: CENTER_LNG },
+    zoom: z0,
+    minZoom: z0,
+    maxZoom: 18,
+    // 縦方向は世界の外(極地の白)へ行かないよう止める。横は回り込ませる
+    restriction: {
+      latLngBounds: { north: WORLD_NORTH, south: WORLD_SOUTH, west: -180, east: 180 },
+      strictBounds: false
+    },
+    // 地図そのものを見せたいので、余計な操作系は置かない
+    mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+    zoomControl: !MOBILE.matches,
+    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+    clickableIcons: false,
+    keyboardShortcuts: false
+  });
+
+  const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
   // 同一座標の本をまとめる
   const groups = {};
   for (const b of mappable) {
-    const key = b.place.lat + "," + normLng(b.place.lng);
+    const key = b.place.lat + "," + b.place.lng;
     (groups[key] ||= []).push(b);
   }
 
-  const latlngs = [];
   const markers = {};
   const precisions = {};
   for (const key in groups) {
     const g = groups[key];
     const [lat, lng] = key.split(",").map(Number);
-    latlngs.push([lat, lng]);
     precisions[key] = g[0].place.precision;
 
-    // 冊数は栞の大きさで表す。下端の切り込みが地点を指すので、
-    // 中心ではなく下端を座標に合わせる
-    const w = Math.min(15 + (g.length - 1) * 4, 26);
-    const h = Math.round(w * 1.5);
-    const icon = L.divIcon({
-      className: "",
-      html: shioriHtml(),
-      iconSize: [w, h], iconAnchor: [w / 2, h]
+    const content = shioriElement(g.length);
+    const marker = new AdvancedMarkerElement({
+      map, position: { lat, lng }, content, gmpClickable: true,
+      title: g[0].place.name
     });
-
-    const marker = L.marker([lat, lng], { icon }).addTo(map);
     markers[key] = marker;
 
-    if (MOBILE.matches) {
-      // 狭い帯の中にポップアップを出すと窮屈なので、一覧側へ送る
-      marker.on("click", () => focusItem(key));
-    } else {
-      marker.on("click", () => {
+    // 新しいマーカーは gmp-click。click は非推奨警告が出る
+    marker.addListener("gmp-click", () => {
+      if (MOBILE.matches) {
+        // 狭い帯の中に読み物を出すと窮屈なので、一覧側へ送る
+        focusItem(key);
+      } else {
         selectPin(key);
         showPlace(g[0].place.name, g, covers);
-      });
-    }
+      }
+    });
+  }
+
+  function pinEl(key) {
+    const m = markers[key];
+    return m && m.content ? m.content.querySelector ? m.content : null : null;
   }
 
   function selectPin(key) {
     document.querySelectorAll(".pin.active").forEach(p => p.classList.remove("active"));
-    const el = key && markers[key] && markers[key].getElement();
-    const pin = el && el.querySelector(".pin");
-    if (pin) pin.classList.add("active");
+    const el = key && pinEl(key);
+    if (el) el.classList.add("active");
   }
 
-  // --- スマホ: 地図の下に引用を積む ---
+  // --- 世界全体の見せ方 ---
 
-  // 世界の縦横比。地図帯をこの高さにすると上下に余白が出ない
-  function worldRatio() {
-    const nw = map.project(WORLD.getNorthWest(), 0);
-    const se = map.project(WORLD.getSouthEast(), 0);
-    return (se.y - nw.y) / (se.x - nw.x);
+  // 世界がちょうど収まる位置に戻す
+  function showWorld() {
+    const w = mapEl.clientWidth, h = mapEl.clientHeight;
+    const z = worldZoom(w, h);
+    map.setOptions({ minZoom: z });
+    map.moveCamera({ center: { lat: WORLD_CENTER_LAT, lng: CENTER_LNG }, zoom: z });
   }
 
+  // スマホの地図帯は、世界の縦横比ぴったりの高さにして上下の余白をなくす
   function layoutMobileMap() {
-    const el = document.getElementById("map");
-    el.style.height = Math.round(el.clientWidth * worldRatio()) + "px";
-    map.invalidateSize();
-    applyMinZoom();
-    map.fitBounds(WORLD, { padding: [0, 0], animate: false });
+    mapEl.style.height = Math.round(mapEl.clientWidth * WORLD_H) + "px";
+    showWorld();
   }
 
   // 寄る深さは場所の精度に合わせる。「シリコンバレー」で街路まで寄っても
@@ -415,28 +418,18 @@ async function init() {
 
   // 拡大したあと世界に戻るための導線(スマホのみ)
   function addWorldControl() {
-    const Ctl = L.Control.extend({
-      options: { position: "bottomright" },
-      onAdd() {
-        const el = L.DomUtil.create("div", "world-link");
-        el.textContent = "全体を見る";
-        L.DomEvent.disableClickPropagation(el);
-        el.addEventListener("click", () => {
-          map.flyToBounds(WORLD, { padding: [0, 0], duration: .8 });
-        });
-        return el;
-      }
-    });
-    map.addControl(new Ctl());
-    const update = () =>
-      document.body.classList.toggle("zoomed", map.getZoom() > map.getMinZoom() + 0.3);
-    map.on("zoomend", update);
-    update();
+    const el = document.createElement("div");
+    el.className = "world-link";
+    el.textContent = "全体を見る";
+    el.addEventListener("click", showWorld);
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(el);
+    map.addListener("zoom_changed", () =>
+      document.body.classList.toggle("zoomed", map.getZoom() > map.getMinZoom() + 0.3));
   }
 
   function renderList() {
     const list = document.getElementById("list");
-    const key = b => b.place.lat + "," + normLng(b.place.lng);
+    const key = b => b.place.lat + "," + b.place.lng;
     const byDate = (a, b) => (b.atogaki.date || "").localeCompare(a.atogaki.date || "");
     const item = (b, k) =>
       `<div class="item"${k ? ` data-key="${k}"` : ""}>${entryHtml(b, covers)}</div>`;
@@ -455,18 +448,16 @@ async function init() {
       if (!k) return; // 「地図の外」は飛び先がない
       const [lat, lng] = k.split(",").map(Number);
       window.scrollTo(0, 0);
-      map.flyTo([lat, lng], zoomFor(precisions[k]), { duration: 1.1 });
+      map.setZoom(zoomFor(precisions[k]));
+      map.panTo({ lat, lng });
       highlightPin(k);
     });
   }
 
   function highlightPin(k) {
-    document.querySelectorAll(".pin.active").forEach(p => p.classList.remove("active"));
-    const el = markers[k] && markers[k].getElement();
-    const pin = el && el.querySelector(".pin");
-    if (!pin) return;
-    pin.classList.add("active");
-    setTimeout(() => pin.classList.remove("active"), 2400);
+    selectPin(k);
+    const el = pinEl(k);
+    if (el) setTimeout(() => el.classList.remove("active"), 2400);
   }
 
   // ピン → 一覧。その場所の最初の項目までスクロールして目印を付ける
@@ -479,18 +470,9 @@ async function init() {
     setTimeout(() => el.classList.remove("active"), 2400);
   }
 
-  // --- デスクトップ: 画面全面の地図にピン範囲を収める ---
-
-  function fitDesktop() {
-    map.invalidateSize();
-    applyMinZoom();
-    const pad = Math.min(60, Math.round(map.getSize().x * 0.08));
-    map.fitBounds(L.latLngBounds(latlngs), { padding: [pad, pad], animate: false });
-  }
-
   function layout() {
     if (MOBILE.matches) layoutMobileMap();
-    else fitDesktop();
+    else showWorld();
   }
 
   if (MOBILE.matches) {
@@ -506,7 +488,7 @@ async function init() {
     };
     showIntro(stats);
     // 地図の余白を押したら選択を解いて案内に戻す
-    map.on("click", () => { selectPin(null); showIntro(stats); });
+    map.addListener("click", () => { selectPin(null); showIntro(stats); });
 
     const link = document.getElementById("offmap-link");
     if (offmap.length) {
@@ -515,18 +497,38 @@ async function init() {
     }
   }
 
-  // コンテナサイズ確定前だと fitBounds が壊れるため、妥当なズームになるまで再試行
-  (function ensureFit(tries) {
-    layout();
-    if (map.getZoom() > 8 && tries > 0) setTimeout(() => ensureFit(tries - 1), 200);
-  })(50);
-
+  layout();
   window.addEventListener("resize", layout);
   // 600px の境界をまたいだらレイアウト方式ごと切り替える
   MOBILE.addEventListener("change", () => window.location.reload());
 }
 
-init();
+// Google Maps を読み込んでから init を呼ぶ。キーは config.js 経由で渡る
+(function loadMap() {
+  const cfg = window.NITE_CONFIG || {};
+  if (!cfg.googleMapsKey) {
+    document.getElementById("panel-body").innerHTML =
+      `<p class="lead">地図のキーが設定されていません。<br>
+        <code>.env</code> に GOOGLE_MAPS_KEY を入れて
+        <code>node --env-file=.env build.js</code> を実行してください。</p>`;
+    return;
+  }
+  window.initMap = init;
+  // キーの制限や課金設定に問題があると Google がこれを呼ぶ。
+  // 地図が白いままだと原因が分からないので、パネルに理由を出す
+  window.gm_authFailure = () => {
+    document.getElementById("panel-body").innerHTML =
+      `<p class="lead">地図を読み込めませんでした。<br>
+        APIキーの「ウェブサイトの制限」に、いま開いているURL
+        (<code>${location.origin}</code>)が入っているかを確認してください。<br>
+        請求先アカウントが有効か、1日の割り当てを超えていないかも確認先です。</p>`;
+  };
+  const s = document.createElement("script");
+  s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(cfg.googleMapsKey) +
+          "&v=weekly&language=ja&region=JP&loading=async&callback=initMap";
+  s.async = true;
+  document.head.appendChild(s);
+})();
 </script>
 </body>
 </html>
