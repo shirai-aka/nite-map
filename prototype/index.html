@@ -9,7 +9,7 @@
 <style>
   html, body { height: 100%; margin: 0; }
   body { font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif; }
-  #list { display: none; }
+  #list, #detail { display: none; }
 
   /* 地図は見慣れたままにする。色を落とすと地形も道も判別できなくなり、
      静かというより平坦になるため、フィルタはかけない */
@@ -124,6 +124,20 @@
     /* 高さは世界の縦横比から JS が px で入れる */
     #map { position: static; right: auto; height: 0; }
 
+    /* 栞をタップしたときは、その場所の本だけを地図のすぐ下に出す。
+       一覧まで目を移さずに済むよう、一覧はいったん引っ込める */
+    #detail { padding: 18px 20px 30px; }
+    body.place-selected #detail { display: block; }
+    body.place-selected #list { display: none; }
+    #detail .place-head {
+      font-size: 12px; letter-spacing: .25em; color: #7a7263;
+      margin: 0 0 18px; padding-bottom: 0; border-bottom: none;
+    }
+    #detail .quote { font-size: 16px; line-height: 2; }
+    #detail .entry + .entry {
+      border-top: 1px solid #e3ddd2; margin-top: 24px; padding-top: 24px;
+    }
+
     #list { display: block; padding: 4px 20px 40px; }
     #list .item {
       padding: 20px 0; border-top: 1px solid #e3ddd2;
@@ -165,6 +179,7 @@
   <div id="panel-body"></div>
 </aside>
 <div id="map"></div>
+<section id="detail"></section>
 <section id="list"></section>
 <div class="offmap-link" id="offmap-link">地図の外</div>
 
@@ -326,8 +341,13 @@ async function init() {
     books.map(b => b.book && b.book.isbn).filter(Boolean)
   );
 
-  // 地図を作る
+  // 地図を作る。スマホの帯は先に高さを決めておく
+  // (高さ0のまま生成すると、あとから高さを入れてもズームが切り上げられる)
   const mapEl = document.getElementById("map");
+  const applyBandHeight = () => {
+    if (MOBILE.matches) mapEl.style.height = Math.round(mapEl.clientWidth * WORLD_H) + "px";
+  };
+  applyBandHeight();
   const z0 = worldZoom(mapEl.clientWidth || 800, mapEl.clientHeight || 600);
   map = new google.maps.Map(mapEl, {
     mapId: (window.NITE_CONFIG || {}).googleMapsMapId,
@@ -335,13 +355,15 @@ async function init() {
     zoom: z0,
     minZoom: z0,
     maxZoom: 18,
-    // 縦方向は世界の外(極地の白)へ行かないよう止める。横は回り込ませる
+    // 縦方向は世界の外(極地の白)へ行かないよう止める。横は回り込ませる。
+    // 表示したい範囲と同じにすると境界でズームが切り上げられるので少し広く取る
     restriction: {
-      latLngBounds: { north: WORLD_NORTH, south: WORLD_SOUTH, west: -180, east: 180 },
+      latLngBounds: { north: WORLD_NORTH + 4, south: WORLD_SOUTH - 4, west: -180, east: 180 },
       strictBounds: false
     },
     // 地図そのものを見せたいので、余計な操作系は置かない
     mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+    cameraControl: false,
     zoomControl: !MOBILE.matches,
     zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
     clickableIcons: false,
@@ -373,13 +395,9 @@ async function init() {
 
     // 新しいマーカーは gmp-click。click は非推奨警告が出る
     marker.addListener("gmp-click", () => {
-      if (MOBILE.matches) {
-        // 狭い帯の中に読み物を出すと窮屈なので、一覧側へ送る
-        focusItem(key);
-      } else {
-        selectPin(key);
-        showPlace(g[0].place.name, g, covers);
-      }
+      selectPin(key);
+      if (MOBILE.matches) openPlace(key, g);
+      else showPlace(g[0].place.name, g, covers);
     });
   }
 
@@ -394,19 +412,42 @@ async function init() {
     if (el) el.classList.add("active");
   }
 
+  // --- スマホ: 栞をタップしたら、寄って、その本を地図のすぐ下に出す ---
+
+  function openPlace(key, g) {
+    const [lat, lng] = key.split(",").map(Number);
+    map.setZoom(zoomFor(precisions[key]));
+    map.panTo({ lat, lng });
+    document.getElementById("detail").innerHTML =
+      `<p class="place-head">${g[0].place.name}</p>` +
+      g.map(b => entryHtml(b, covers)).join("");
+    document.body.classList.add("place-selected");
+    window.scrollTo(0, 0);
+  }
+
+  function closePlace() {
+    document.body.classList.remove("place-selected");
+    document.getElementById("detail").innerHTML = "";
+    selectPin(null);
+  }
+
   // --- 世界全体の見せ方 ---
+
+  // 世界がちょうど収まるズーム。Googleの地図に getMinZoom() は無いので控えておく
+  let worldZ = worldZoom(mapEl.clientWidth || 800, mapEl.clientHeight || 600);
 
   // 世界がちょうど収まる位置に戻す
   function showWorld() {
-    const w = mapEl.clientWidth, h = mapEl.clientHeight;
-    const z = worldZoom(w, h);
-    map.setOptions({ minZoom: z });
-    map.moveCamera({ center: { lat: WORLD_CENTER_LAT, lng: CENTER_LNG }, zoom: z });
+    worldZ = worldZoom(mapEl.clientWidth, mapEl.clientHeight);
+    map.setOptions({ minZoom: worldZ });
+    map.setCenter({ lat: WORLD_CENTER_LAT, lng: CENTER_LNG });
+    map.setZoom(worldZ);
+    if (MOBILE.matches) closePlace();
   }
 
   // スマホの地図帯は、世界の縦横比ぴったりの高さにして上下の余白をなくす
   function layoutMobileMap() {
-    mapEl.style.height = Math.round(mapEl.clientWidth * WORLD_H) + "px";
+    applyBandHeight();
     showWorld();
   }
 
@@ -424,7 +465,7 @@ async function init() {
     el.addEventListener("click", showWorld);
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(el);
     map.addListener("zoom_changed", () =>
-      document.body.classList.toggle("zoomed", map.getZoom() > map.getMinZoom() + 0.3));
+      document.body.classList.toggle("zoomed", map.getZoom() > worldZ + 0.3));
   }
 
   function renderList() {
@@ -460,16 +501,6 @@ async function init() {
     if (el) setTimeout(() => el.classList.remove("active"), 2400);
   }
 
-  // ピン → 一覧。その場所の最初の項目までスクロールして目印を付ける
-  function focusItem(k) {
-    const el = document.querySelector(`#list .item[data-key="${k}"]`);
-    if (!el) return;
-    document.querySelectorAll("#list .item.active").forEach(i => i.classList.remove("active"));
-    el.classList.add("active");
-    el.scrollIntoView({ block: "center" });
-    setTimeout(() => el.classList.remove("active"), 2400);
-  }
-
   function layout() {
     if (MOBILE.matches) layoutMobileMap();
     else showWorld();
@@ -498,6 +529,15 @@ async function init() {
   }
 
   layout();
+  // 生成直後の指定は、地図の準備が整う過程で上書きされてしまう。
+  // 初回の描画が終わってからもう一度合わせる。ただし利用者が先に
+  // 触っていた場合は勝手に戻さない
+  let touched = false;
+  map.addListener("dragstart", () => { touched = true; });
+  map.addListener("click", () => { touched = true; });
+  google.maps.event.addListenerOnce(map, "tilesloaded", () => {
+    if (!touched) layout();
+  });
   window.addEventListener("resize", layout);
   // 600px の境界をまたいだらレイアウト方式ごと切り替える
   MOBILE.addEventListener("change", () => window.location.reload());
