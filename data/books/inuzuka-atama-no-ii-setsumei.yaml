@@ -1,0 +1,32 @@
+title: 東大院生が開発! 頭のいい説明は型で決まる
+author: 犬塚壮志
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  signer: null
+  quote: 2018年3月吉日　湯島天神の見える書斎にて
+  page: null
+  date: "2018-03"
+
+place:
+  name: 湯島天神の見える書斎
+  lat: 35.7079
+  lng: 139.7678
+  precision: neighborhood
+  kind: null
+
+book:
+  published: 2018
+  publisher: PHP研究所
+  isbn: "9784569837987"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-15
+  contributor: null
+  notes: "座標は湯島天満宮の位置。書斎そのものの場所は特定できないため、その見える範囲として置いている"
