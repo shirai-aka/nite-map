@@ -40,6 +40,16 @@
   #panel .lead { font-size: 13px; line-height: 2.1; color: #5c554a; margin: 0 0 24px; }
   #panel .stats { font-size: 11.5px; letter-spacing: .14em; color: #7a7263; line-height: 2.2; margin: 0; }
 
+  /* 「この地図について」 */
+  .about-link { margin: 28px 0 0; font-size: 12px; letter-spacing: .1em; }
+  .about-link a { color: #7a7263; text-decoration: underline; text-underline-offset: 4px; }
+  .about-link a:hover { color: #3a352e; }
+  .about-head {
+    font-size: 12px; letter-spacing: .18em; color: #3a352e;
+    margin: 26px 0 8px;
+  }
+  .about-body { font-size: 12.5px; line-height: 2.05; color: #5c554a; margin: 0; }
+
   /* 引用が主役。書名や著者はひとまわり小さく沈める */
   #panel .quote { font-size: 19px; line-height: 2.05; margin: 0 0 22px; }
   #panel .cover { width: 64px; }
@@ -152,6 +162,15 @@
       font-size: 12px; letter-spacing: .25em; color: #7a7263;
     }
     #list .offmap-head + .item { border-top: none; }
+
+    /* 一覧の末尾に置く「この地図について」 */
+    .about-block {
+      margin-top: 32px; padding-top: 28px; border-top: 1px solid #cfc7b8;
+    }
+    .about-block .place-head { border-bottom: none; padding-bottom: 0; }
+    .about-block .lead {
+      font-size: 13px; line-height: 2.05; color: #5c554a; margin: 0;
+    }
 
     /* 一覧に統合するのでフローティングの「地図の外」は使わない */
     .offmap-link { display: none !important; }
@@ -305,8 +324,44 @@ function showIntro(stats) {
   setPanel(
     `<p class="lead">本のあとがきに書かれた「〇〇にて」を集めています。<br>
       地図の点をたどると、その本が書かれた場所に行き当たります。</p>
-     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所<br>${stats.from}年 — ${stats.to}年</p>`
+     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所<br>${stats.from}年 — ${stats.to}年</p>
+     <p class="about-link"><a href="#" id="about-link">この地図について</a></p>`
   );
+  const a = document.getElementById("about-link");
+  if (a) a.addEventListener("click", e => {
+    e.preventDefault();
+    setPanel(aboutHtml(true));
+    document.getElementById("back-link")
+      .addEventListener("click", ev => { ev.preventDefault(); showIntro(stats); });
+  });
+}
+
+// 引用の扱いと、アフィリエイトの開示。公開時に必要になる説明をここに置く
+function aboutHtml(withBack) {
+  return `
+    <p class="place-head">この地図について</p>
+    <p class="lead">本のあとがきの終わりには、しばしば「〇〇にて」という一行が置かれています。
+      著者が筆を置いた場所と、その日付。ここでは、その一行だけを集めて地図に並べています。</p>
+
+    <p class="about-head">引用について</p>
+    <p class="about-body">引用は原則として一行のみ、原文のままです。書名・著者・出版社を併記しています。
+      掲載を控えてほしいというご連絡をいただいた場合は、確認のうえ削除します。</p>
+
+    <p class="about-head">場所について</p>
+    <p class="about-body">「京都にて」のような広い地名は、正確な座標ではなく都市のあたりに置いています。
+      このメディアは測量図ではなく、その場所に想いを馳せるためのものだからです。
+      「機上にて」のように地図に置けないもの、書かれた場所が記されていないものは
+      「地図の外」にまとめています。</p>
+
+    <p class="about-head">書影とリンクについて</p>
+    <p class="about-body">書影と購入リンクは楽天ブックスおよび openBD の提供データを使っています。
+      手に入らない本は、書名だけを置いた表紙で代えています。</p>
+    <p class="about-body">当サイトは Amazon アソシエイト・プログラムおよび楽天アフィリエイトに
+      参加しています。Amazonのアソシエイトとして、「〇〇にて」は適格販売により収入を得ています。</p>
+
+    <p class="about-head">地図について</p>
+    <p class="about-body">地図は Google マップを使用しています。</p>
+    ${withBack ? `<p class="about-link"><a href="#" id="back-link">← 戻る</a></p>` : ""}`;
 }
 
 function showPlace(name, list, covers) {
@@ -488,7 +543,9 @@ async function init() {
       (offmap.length
         ? `<p class="offmap-head">地図の外</p>` +
           offmap.slice().sort(byDate).map(b => item(b, null)).join("")
-        : "");
+        : "") +
+      // スマホには据え置きのパネルがないので、一覧の末尾に置く
+      `<div class="about-block">${aboutHtml(false)}</div>`;
 
     list.addEventListener("click", e => {
       const el = e.target.closest(".item");
