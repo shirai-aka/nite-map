@@ -49,6 +49,8 @@
     margin: 26px 0 8px;
   }
   .about-body { font-size: 12.5px; line-height: 2.05; color: #5c554a; margin: 0; }
+  .about-body a { color: #5c554a; text-decoration: underline; text-underline-offset: 3px; }
+  .about-body a:hover { color: #3a352e; }
 
   /* 引用が主役。書名や著者はひとまわり小さく沈める */
   #panel .quote { font-size: 19px; line-height: 2.05; margin: 0 0 22px; }
@@ -361,6 +363,11 @@ function aboutHtml(withBack) {
 
     <p class="about-head">地図について</p>
     <p class="about-body">地図は Google マップを使用しています。</p>
+
+    <p class="about-head">ご連絡</p>
+    <p class="about-body">掲載についてのご連絡、収録してほしい「〇〇にて」のお知らせは
+      <a href="https://x.com/shirai_aka" target="_blank" rel="noopener">X(@shirai_aka)</a>
+      までお願いします。</p>
     ${withBack ? `<p class="about-link"><a href="#" id="back-link">← 戻る</a></p>` : ""}`;
 }
 
