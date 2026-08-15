@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+# books.json と config.js はリポジトリに置いていない(生成物・APIキーを含む)ため、
+# 配信前にここでビルドする。キーは GitHub の Secrets から渡す。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時に走らせない。走行中のものは止めずに待たせる
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: ビルド(books.json と config.js を生成)
+        env:
+          GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+          GOOGLE_MAPS_MAP_ID: ${{ secrets.GOOGLE_MAPS_MAP_ID }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          AMAZON_TAG: ${{ secrets.AMAZON_TAG }}
+          # 楽天APIは Origin が「許可されたウェブサイト」と一致しないと 403
+          RAKUTEN_ORIGIN: https://shirai-aka.github.io
+        run: node build.js
+
+      - name: 地図のキーが入ったか確認(値は出さない)
+        run: |
+          if grep -q '"googleMapsKey":""' prototype/config.js; then
+            echo "GOOGLE_MAPS_KEY が空です。リポジトリの Secrets を確認してください。"
+            exit 1
+          fi
+          echo "地図のキーは設定されています"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: prototype
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

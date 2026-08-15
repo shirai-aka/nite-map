@@ -8,6 +8,27 @@
 - `build.js` — YAML を `prototype/books.json` に変換(依存なし、Node で実行)
 - `prototype/index.html` — 地図プロトタイプ(Leaflet + OSM日本タイル + openBD表紙)
 
+## 公開(GitHub Pages)
+
+`main` に push すると `.github/workflows/pages.yml` が動き、ビルドしてから
+`prototype/` を配信する。`books.json` と `config.js` はリポジトリに置いていない
+(生成物・APIキーを含む)ため、配信前に CI で生成している。
+
+必要な GitHub Secrets(Settings → Secrets and variables → Actions):
+
+| 名前 | 用途 |
+|---|---|
+| `GOOGLE_MAPS_KEY` | 地図の表示。無いとビルドを失敗させている |
+| `GOOGLE_MAPS_MAP_ID` | 栞のピン(Advanced Markers)に必要 |
+| `RAKUTEN_APP_ID` / `RAKUTEN_ACCESS_KEY` / `RAKUTEN_AFFILIATE_ID` | 書影とアフィリエイトリンク |
+| `AMAZON_TAG` | Amazonアソシエイトのタグ |
+
+楽天は取得済みの分が `data/rakuten-cache.json` にあるため、キーが無くても
+既存の本のリンクは生成される(新しく足した本だけ取りに行く)。
+
+公開URL: https://shirai-aka.github.io/nite-map/
+このURLを Google の APIキー制限と、楽天の「許可されたウェブサイト」に入れておくこと。
+
 ## 地図について(Google Maps)
 
 Maps JavaScript API を使う。キーと Map ID は `.env` に置き、`build.js` が
