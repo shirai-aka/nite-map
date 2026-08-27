@@ -1,0 +1,32 @@
+title: リトル・ピープルの時代
+author: 宇野常寛
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  signer: null
+  quote: 2015年2月　高田馬場の仕事場にて
+  page: null
+  date: "2015-02"
+
+place:
+  name: 高田馬場の仕事場
+  lat: 35.7122
+  lng: 139.7038
+  precision: neighborhood
+  kind: null
+
+book:
+  published: 2015
+  publisher: 幻冬舎(幻冬舎文庫)
+  isbn: "9784344423244"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-15
+  contributor: null
+  notes: "2015年2月の署名は文庫版あとがきのもの。単行本は2011年7月刊(9784344020245)。座標は高田馬場駅の位置"
