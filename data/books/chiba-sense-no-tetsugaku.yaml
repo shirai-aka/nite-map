@@ -1,0 +1,32 @@
+title: センスの哲学
+author: 千葉雅也
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  signer: null
+  quote: 2024年2月　温かさを感じるようになってきた大阪にて
+  page: null
+  date: "2024-02"
+
+place:
+  name: 大阪
+  lat: 34.6938
+  lng: 135.5021
+  precision: city
+  kind: null
+
+book:
+  published: 2024
+  publisher: 文藝春秋
+  isbn: "9784163918273"
+  format: ebook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-08-15
+  contributor: null
+  notes: "季節の移ろいに触れる署名。同種の例に『「論理的思考」の文化的基盤』(コロナが収束しつつある名古屋にて)"
