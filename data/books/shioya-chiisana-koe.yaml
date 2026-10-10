@@ -1,0 +1,32 @@
+title: 小さな声の向こうに
+author: 塩谷舞
+translator: null
+
+atogaki:
+  type: author
+  nite: true
+  signer: null
+  quote: 2024年　冬の終わり　雪が舞う山中の湖畔にて　塩谷舞
+  page: null
+  date: "2024"
+
+place:
+  name: 山中の湖畔
+  lat: 35.8038
+  lng: 138.6545
+  precision: neighborhood
+  kind: null
+
+book:
+  published: 2024
+  publisher: 文藝春秋
+  isbn: "9784163918297"
+  format: audiobook
+
+links:
+  amazon: ""
+
+meta:
+  added: 2026-10-10
+  contributor: null
+  notes: "本文で言及のある宿ホトリニテ(山梨市牧丘町北原・乙女湖畔、標高約1500m)。山中湖畔の店は2018年末に閉店し2020年1月に乙女湖へ移転しているため、2024年の署名は乙女湖。「山中の湖畔」は山中湖ではなく山の中の湖畔の意。建物の位置は公開データに無いため座標は乙女湖の中心。OSMには旧所在地(山中湖)のまま残っているので注意"

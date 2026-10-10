@@ -32,7 +32,8 @@ book:
   published: 2001     # 刊行年(手元の版でよい)
   publisher: 新潮社
   isbn: "9784101234567"  # ハイフンなし13桁。文字列で
-  format: print       # print | ebook(採取に使った版。ebook なら page は null 可)
+  format: print       # print | ebook | audiobook(採取に使った版。print 以外は page は null 可)
+                      # audiobook は聞き取りなので、引用の表記揺れに注意する
 
 links:
   amazon: ""          # アフィリエイトリンク。空でよい
