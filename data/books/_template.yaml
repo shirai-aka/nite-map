@@ -21,7 +21,7 @@ book:
   published:
   publisher:
   isbn: ""
-  format: print       # print | ebook
+  format: print       # print | ebook | audiobook
 
 links:
   amazon: ""
