@@ -15,21 +15,23 @@
   /* 紙の縁取り */
   .frame { position: absolute; inset: 28px; border: 1px solid #e3ddd2; }
 
-  .title { position: absolute; left: 96px; top: 150px; }
-  .title h1 { margin: 0; font-size: 104px; font-weight: 700; letter-spacing: .1em; line-height: 1; }
-  .title .sub { margin: 30px 0 0 6px; font-size: 30px; letter-spacing: .5em; color: #7a7263; }
-  .title .lead {
-    margin: 64px 0 0 6px; font-size: 21px; line-height: 1.9; color: #5c554a; letter-spacing: .06em;
+  /* 貼り付け先によっては左右が切り落とされる(正方形に近く切るところもある)ので、
+     題字は中央の正方形(x 285〜915)に収め、栞の行は中央寄りの両脇に置く */
+  .title {
+    position: absolute; left: 0; right: 0; top: 218px; text-align: center;
   }
+  .title h1 { margin: 0; font-size: 92px; font-weight: 700; letter-spacing: .08em; line-height: 1; padding-left: .08em; }
+  .title .sub { margin-top: 30px; font-size: 28px; letter-spacing: .5em; padding-left: .5em; color: #7a7263; }
 
-  /* 栞を挟んだ一行を縦書きで吊るす */
-  .lines { position: absolute; right: 100px; top: 104px; display: flex; gap: 34px; }
+  .lines { position: absolute; top: 118px; display: flex; gap: 30px; }
+  .lines.l { left: 196px; }
+  .lines.r { right: 196px; }
   .line { display: flex; flex-direction: column; align-items: center; }
-  .line svg { width: 22px; height: 33px; color: #7a5a3c; }
+  .line svg { width: 20px; height: 30px; color: #7a5a3c; }
   .line.sel svg { color: #b0522e; }
   .line span {
-    writing-mode: vertical-rl; margin-top: 16px;
-    font-size: 25px; letter-spacing: .14em; color: #4a443b;
+    writing-mode: vertical-rl; margin-top: 14px;
+    font-size: 23px; letter-spacing: .14em; color: #4a443b;
   }
   .line.sel span { color: #3a352e; font-weight: 700; }
 </style>
@@ -37,18 +39,19 @@
 <body>
   <div class="frame"></div>
 
+  <div class="lines l">
+    <div class="line" style="margin-top:60px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>茗荷谷の喫茶店で</span></div>
+    <div class="line" style="margin-top:0px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>ダカールにて</span></div>
+  </div>
+
   <div class="title">
     <h1>〇〇にて</h1>
     <div class="sub">あとがきの地図</div>
-    <div class="lead">本のあとがきの終わりに置かれた<br>「どこで書いたか」の一行を、地図に集めて。</div>
   </div>
 
-  <div class="lines">
-    <div class="line" style="margin-top:70px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>茗荷谷の喫茶店で</span></div>
-    <div class="line" style="margin-top:20px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>ダカールにて</span></div>
-    <div class="line sel" style="margin-top:0"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>雪が舞う山中の湖畔にて</span></div>
-    <div class="line" style="margin-top:46px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>城の崎にて</span></div>
-    <div class="line" style="margin-top:10px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>湯島天神の見える書斎にて</span></div>
+  <div class="lines r">
+    <div class="line sel" style="margin-top:0px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>雪が舞う山中の湖畔にて</span></div>
+    <div class="line" style="margin-top:48px"><svg viewBox="0 0 12 18"><path d="M1.2 1.2 h9.6 v13.2 l-4.8 -3.3 l-4.8 3.3 z" fill="currentColor"/></svg><span>城の崎にて</span></div>
   </div>
 </body>
 </html>
