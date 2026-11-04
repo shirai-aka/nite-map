@@ -191,6 +191,31 @@
 
   }
 
+  /* 地図なし(build.js --no-maps、またはキー未設定)。地図の場所に引用の一覧を出す。
+     データの中身を確かめるための姿で、公開時には使わない */
+  body.no-map #map { display: none; }
+  body.no-map #list {
+    display: block; position: absolute; top: 0; left: 0; right: var(--panel-w); bottom: 0;
+    overflow-y: auto; box-sizing: border-box; padding: 30px 32px 44px; background: #eceae4;
+  }
+  body.no-map #list .item { padding: 20px 0; border-top: 1px solid #ddd5c6; }
+  body.no-map #list .item:first-child { border-top: none; }
+  body.no-map #list .offmap-head {
+    margin: 28px 0 0; padding-top: 20px; border-top: 1px solid #cfc7b8;
+    font-size: 12px; letter-spacing: .25em; color: #7a7263;
+  }
+  body.no-map #list .about-block { display: none; } /* 右のパネルから読める */
+  .notice {
+    font-size: 12.5px; line-height: 1.9; color: #8a6a3c; margin: 0 0 20px;
+    padding: 10px 12px; background: #f4ede0; border-left: 2px solid #c9a86b;
+  }
+  .notice code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+  @media (max-width: 600px) {
+    body.no-map #list { position: static; padding: 4px 20px 40px; background: transparent; }
+    body.no-map #list .about-block { display: block; }
+    .notice { margin: 0 20px 8px; }
+  }
+
   /* 拡大中だけ出す「全体を見る」 */
   .world-link {
     background: #fbf9f5; color: #3a352e;
@@ -224,9 +249,10 @@ const MOBILE = window.matchMedia("(max-width: 600px)");
 
 // 表示用: 引用から署名(氏名)を省く。データ上の quote は原文ママのまま
 function displayQuote(rec) {
-  const signer = rec.atogaki.signer || rec.translator || rec.author;
-  const q = rec.atogaki.quote;
-  if (q === signer) return q;
+  const a = rec.atogaki || {};
+  const signer = a.signer || rec.translator || rec.author;
+  const q = String(a.quote == null ? "" : a.quote);
+  if (!signer || q === signer) return q;
   // 署名を外すと行頭にダッシュや読点が残ることがあるので落とす
   return q.replace(signer, "").replace(/\s+/g, " ").trim()
           .replace(/^[―—–\-・、,\s]+/, "").trim();
@@ -261,6 +287,7 @@ function worldZoom(w, h) {
 
 // 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
 async function fetchCovers(isbns) {
+  if (!isbns.length) return {};
   try {
     const res = await fetch("https://api.openbd.jp/v1/get?isbn=" + isbns.join(","));
     const data = await res.json();
@@ -302,24 +329,30 @@ function coverFallback(img) {
   img.replaceWith(div);
 }
 
+// 外部リンクは https の URL だけ通す(データや API の値をそのまま href に入れない)
+function safeUrl(u) {
+  return typeof u === "string" && /^https:\/\//i.test(u) ? u : "";
+}
+
 function entryHtml(b, covers) {
   const isbn = b.book && b.book.isbn;
   // 表紙は楽天(ビルド時に取得)を優先し、無ければ openBD
-  const cover = b.cover || covers[isbn] || "";
+  const cover = safeUrl(b.cover || covers[isbn] || "");
   const links = b.links || {};
+  const rakuten = safeUrl(links.rakuten_url), amazon = safeUrl(links.amazon_url);
   const buy = [
-    links.rakuten_url ? `<a class="buy" href="${links.rakuten_url}" target="_blank" rel="noopener">楽天ブックス</a>` : "",
-    links.amazon_url ? `<a class="buy" href="${links.amazon_url}" target="_blank" rel="noopener">Amazon</a>` : ""
+    rakuten ? `<a class="buy" href="${esc(rakuten)}" target="_blank" rel="noopener">楽天ブックス</a>` : "",
+    amazon ? `<a class="buy" href="${esc(amazon)}" target="_blank" rel="noopener">Amazon</a>` : ""
   ].filter(Boolean).join("<span class=\"sep\">/</span>");
   // 書影がなければ、書名を縦に置いた素の表紙で埋める(欠けたまま並ぶと不揃いになる)
   const blank = `<div class="cover cover-none"><span>${esc(b.title)}</span></div>`;
   return `<div class="entry">
-     <p class="quote">${displayQuote(b)}</p>
+     <p class="quote">${esc(displayQuote(b))}</p>
      <div class="bib-row">
        ${cover
          ? `<img class="cover" src="${esc(cover)}" data-title="${esc(b.title)}" alt="" onerror="coverFallback(this)">`
          : blank}
-       <p class="bib"><span class="title">『${b.title}』</span><br>${b.author}${b.translator ? "(訳: " + b.translator + ")" : ""}${buy ? `<br>${buy}` : ""}</p>
+       <p class="bib"><span class="title">『${esc(b.title)}』</span><br>${esc(b.author)}${b.translator ? "(訳: " + esc(b.translator) + ")" : ""}${buy ? `<br>${buy}` : ""}</p>
      </div>
    </div>`;
 }
@@ -333,12 +366,25 @@ function setPanel(html) {
   document.getElementById("panel").scrollTop = 0;
 }
 
+// 地図を出せない・データを読めないときの断り書き。パネルの先頭(スマホでは題字の下)に置く
+function setNotice(html) {
+  let el = document.getElementById("notice");
+  if (!html) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement("p");
+    el.id = "notice"; el.className = "notice"; el.setAttribute("role", "status");
+    panelBody().before(el);
+  }
+  el.innerHTML = html;
+}
+
 // 何も選んでいないとき。ここがこのメディアの説明と規模を兼ねる
 function showIntro(stats) {
+  const years = stats.from != null ? `<br>${stats.from}年 — ${stats.to}年` : "";
   setPanel(
     `<p class="lead">本のあとがきに書かれた「〇〇にて」を集めています。<br>
       地図の点をたどると、その本が書かれた場所に行き当たります。</p>
-     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所<br>${stats.from}年 — ${stats.to}年</p>
+     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所${years}</p>
      <p class="about-link"><a href="#" id="about-link">この地図について</a></p>`
   );
   const a = document.getElementById("about-link");
@@ -384,7 +430,7 @@ function aboutHtml(withBack) {
 }
 
 function showPlace(name, list, covers) {
-  setPanel(`<p class="place-head">${name}</p>` + list.map(b => entryHtml(b, covers)).join(""));
+  setPanel(`<p class="place-head">${esc(name)}</p>` + list.map(b => entryHtml(b, covers)).join(""));
 }
 
 // 「地図の外」: precision: unmappable(機上にて等)を kind ごとにまとめて出す
@@ -400,22 +446,57 @@ function showOffmap(offmap, covers) {
     `<p class="lead">地図に置けない場所で書かれた本。</p>` +
     Object.keys(kinds).map(k =>
       `<div class="offmap-group">
-         <p class="place-head">${k}</p>
+         <p class="place-head">${esc(k)}</p>
          ${kinds[k].map(b => entryHtml(b, covers)).join("")}
        </div>`
     ).join("")
   );
 }
 
-async function init() {
-  // no-cache: 毎回サーバーに問い合わせる(更新が反映されない事故を防ぐ。
-  // 中身が変わっていなければ 304 が返るので転送量は増えない)
-  const books = await fetch("books.json", { cache: "no-cache" }).then(r => r.json());
-  const mappable = books.filter(b => b.place && b.place.lat != null && b.place.lng != null);
+// books.json を読む。無い・壊れている・配列でないときは null を返し、断り書きを出す
+// (黙って真っ白になると、ビルド忘れなのか地図の問題なのか分からない)
+async function loadBooks() {
+  try {
+    // no-cache: 毎回サーバーに問い合わせる(更新が反映されない事故を防ぐ。
+    // 中身が変わっていなければ 304 が返るので転送量は増えない)
+    const res = await fetch("books.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("配列でない");
+    return data;
+  } catch (e) {
+    setNotice(`引用のデータ(books.json)を読み込めませんでした(${esc(e.message)})。<br>
+      手元で開いている場合は <code>node build.js</code> を実行して生成してください。`);
+    return null;
+  }
+}
+
+// noMap: Google Maps を読み込まず、地図の場所に引用の一覧を出す
+// (build.js --no-maps、またはキー未設定のとき)
+async function init(opts) {
+  const noMap = !!(opts && opts.noMap);
+  const books = await loadBooks();
+  if (!books) return;
+  const mappable = books.filter(b => b.place && typeof b.place.lat === "number" && typeof b.place.lng === "number");
   const offmap = books.filter(b => b.place && b.place.precision === "unmappable");
   const covers = await fetchCovers(
     books.map(b => b.book && b.book.isbn).filter(Boolean)
   );
+
+  // 同一座標の本をまとめる
+  const groups = {};
+  for (const b of mappable) {
+    const key = b.place.lat + "," + b.place.lng;
+    (groups[key] ||= []).push(b);
+  }
+  const precisions = {};
+  for (const key in groups) precisions[key] = groups[key][0].place.precision;
+
+  if (noMap) {
+    document.body.classList.add("no-map");
+    initNoMap(books, mappable, offmap, covers, groups);
+    return;
+  }
 
   // 地図を作る。スマホの帯は先に高さを決めておく
   // (高さ0のまま生成すると、あとから高さを入れてもズームが切り上げられる)
@@ -448,19 +529,10 @@ async function init() {
 
   const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
-  // 同一座標の本をまとめる
-  const groups = {};
-  for (const b of mappable) {
-    const key = b.place.lat + "," + b.place.lng;
-    (groups[key] ||= []).push(b);
-  }
-
   const markers = {};
-  const precisions = {};
   for (const key in groups) {
     const g = groups[key];
     const [lat, lng] = key.split(",").map(Number);
-    precisions[key] = g[0].place.precision;
 
     const content = shioriElement(g.length);
     const marker = new AdvancedMarkerElement({
@@ -501,7 +573,7 @@ async function init() {
 
   function openPlace(key, g) {
     document.getElementById("detail").innerHTML =
-      `<p class="place-head">${g[0].place.name}</p>` +
+      `<p class="place-head">${esc(g[0].place.name)}</p>` +
       g.map(b => entryHtml(b, covers)).join("");
     document.body.classList.add("place-selected");
     window.scrollTo(0, 0);
@@ -552,19 +624,7 @@ async function init() {
 
   function renderList() {
     const list = document.getElementById("list");
-    const key = b => b.place.lat + "," + b.place.lng;
-    const byDate = (a, b) => (b.atogaki.date || "").localeCompare(a.atogaki.date || "");
-    const item = (b, k) =>
-      `<div class="item"${k ? ` data-key="${k}"` : ""}>${entryHtml(b, covers)}</div>`;
-
-    list.innerHTML =
-      mappable.slice().sort(byDate).map(b => item(b, key(b))).join("") +
-      (offmap.length
-        ? `<p class="offmap-head">地図の外</p>` +
-          offmap.slice().sort(byDate).map(b => item(b, null)).join("")
-        : "") +
-      // スマホには据え置きのパネルがないので、一覧の末尾に置く
-      `<div class="about-block">${aboutHtml(false)}</div>`;
+    renderListInto(list, mappable, offmap, covers);
 
     list.addEventListener("click", e => {
       const el = e.target.closest(".item");
@@ -594,13 +654,7 @@ async function init() {
     renderList();
     addWorldControl();
   } else {
-    const years = books.map(b => b.atogaki.date).filter(Boolean)
-                       .map(d => Number(String(d).slice(0, 4)));
-    const stats = {
-      quotes: books.length,
-      places: Object.keys(groups).length,
-      from: Math.min(...years), to: Math.max(...years)
-    };
+    const stats = statsOf(books, groups);
     const reset = () => { selectPin(null); showIntro(stats); };
     showIntro(stats);
     addWorldControl(reset);
@@ -629,14 +683,54 @@ async function init() {
   MOBILE.addEventListener("change", () => window.location.reload());
 }
 
+// 引用の一覧(スマホの本体、および地図なしのときの本体)
+function renderListInto(list, mappable, offmap, covers) {
+  const key = b => b.place.lat + "," + b.place.lng;
+  const dateOf = b => String((b.atogaki && b.atogaki.date) || "");
+  const byDate = (a, b) => dateOf(b).localeCompare(dateOf(a));
+  const item = (b, k) =>
+    `<div class="item"${k ? ` data-key="${esc(k)}"` : ""}>${entryHtml(b, covers)}</div>`;
+
+  list.innerHTML =
+    mappable.slice().sort(byDate).map(b => item(b, key(b))).join("") +
+    (offmap.length
+      ? `<p class="offmap-head">地図の外</p>` +
+        offmap.slice().sort(byDate).map(b => item(b, null)).join("")
+      : "") +
+    // スマホには据え置きのパネルがないので、一覧の末尾に置く
+    `<div class="about-block">${aboutHtml(false)}</div>`;
+}
+
+// 案内に出す規模。日付のある本が1冊もなければ年の行は出さない
+function statsOf(books, groups) {
+  const years = books.map(b => b.atogaki && b.atogaki.date).filter(Boolean)
+                     .map(d => Number(String(d).slice(0, 4))).filter(Number.isFinite);
+  return {
+    quotes: books.length,
+    places: Object.keys(groups).length,
+    from: years.length ? Math.min(...years) : null,
+    to: years.length ? Math.max(...years) : null
+  };
+}
+
+// 地図なし: 一覧を地図の場所に出し、右のパネルは案内のまま。栞がないので寄る操作もない
+function initNoMap(books, mappable, offmap, covers, groups) {
+  renderListInto(document.getElementById("list"), mappable, offmap, covers);
+  showIntro(statsOf(books, groups));
+}
+
 // Google Maps を読み込んでから init を呼ぶ。キーは config.js 経由で渡る
 (function loadMap() {
   const cfg = window.NITE_CONFIG || {};
   if (!cfg.googleMapsKey) {
-    document.getElementById("panel-body").innerHTML =
-      `<p class="lead">地図のキーが設定されていません。<br>
-        <code>.env</code> に GOOGLE_MAPS_KEY を入れて
-        <code>node --env-file=.env build.js</code> を実行してください。</p>`;
+    // キーが無くても引用は読めるようにする(build.js --no-maps の確認用。
+    // 公開用の CI はキーが無いと止まるので、公開先でこの姿になることはない)
+    setNotice(cfg.noMaps
+      ? `地図なしで表示しています(<code>build.js --no-maps</code>)。`
+      : `地図のキーが設定されていないため、地図なしで表示しています。<br>
+         <code>.env</code> に GOOGLE_MAPS_KEY を入れて
+         <code>node --env-file=.env build.js</code> を実行してください。`);
+    init({ noMap: true });
     return;
   }
   window.initMap = init;
