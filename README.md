@@ -42,7 +42,13 @@ Maps JavaScript API を使う。キーと Map ID は `.env` に置き、`build.j
 - 日本を中央に置くのは中心経度を138度にするだけでよい(世界が横に繰り返すため)
 - 課金対策として、Google Cloud 側で **1日あたりの割り当てを300回程度に制限**している。
   上限に達するとリクエストが止まり、課金には進まない
-- キーは「ウェブサイトの制限」で `http://localhost:8776/*` と公開先URLのみ許可
+- キーは「ウェブサイトの制限」で `http://localhost:8776/*` と公開先URLのみ許可。
+  ブラウザは他ドメインへのリクエストに **オリジンまでしか Referer を送らない**
+  (既定の `strict-origin-when-cross-origin`)ので、パターンは
+  `https://shirai-aka.github.io/*` のようにパス無しで書く(`/nite-map/*` まで書くと弾かれることがある)
+- 同じキーの「API の制限」で **Maps JavaScript API だけ**を許可する。キーは config.js として
+  公開されるので、流用されても地図表示以外に使えない状態にしておく
+- キーの扱いの点検結果は [docs/security-review-2026-11.md](docs/security-review-2026-11.md)
 
 注意: プレビュー枠(Claude Code のブラウザペイン)では requestAnimationFrame が
 動かないため、Google の地図は描画されない。確認は通常のブラウザで
