@@ -6,6 +6,9 @@
 
 - `data/books/*.yaml` — 1冊=1ファイルの採取データ。**これが資産のすべて**。書式は [SCHEMA.md](SCHEMA.md)
 - `build.js` — YAML を `prototype/books.json` に変換(依存なし、Node で実行)
+- `tools/validate.js` — YAML を SCHEMA.md に照らして検証(依存なし)。CI でもビルド前に走る
+- `tools/yaml-lite.js` — build.js と validate.js が共用する限定 YAML パーサ
+- `tools/smoke-prototype.js` — index.html をヘッドレスブラウザで開いて壊れていないか見る(手元用。Playwright が要る)
 - `prototype/index.html` — 地図プロトタイプ(Leaflet + OSM日本タイル + openBD表紙)
 
 ## 公開(GitHub Pages)
@@ -39,7 +42,13 @@ Maps JavaScript API を使う。キーと Map ID は `.env` に置き、`build.j
 - 日本を中央に置くのは中心経度を138度にするだけでよい(世界が横に繰り返すため)
 - 課金対策として、Google Cloud 側で **1日あたりの割り当てを300回程度に制限**している。
   上限に達するとリクエストが止まり、課金には進まない
-- キーは「ウェブサイトの制限」で `http://localhost:8776/*` と公開先URLのみ許可
+- キーは「ウェブサイトの制限」で `http://localhost:8776/*` と公開先URLのみ許可。
+  ブラウザは他ドメインへのリクエストに **オリジンまでしか Referer を送らない**
+  (既定の `strict-origin-when-cross-origin`)ので、パターンは
+  `https://shirai-aka.github.io/*` のようにパス無しで書く(`/nite-map/*` まで書くと弾かれることがある)
+- 同じキーの「API の制限」で **Maps JavaScript API だけ**を許可する。キーは config.js として
+  公開されるので、流用されても地図表示以外に使えない状態にしておく
+- キーの扱いの点検結果は [docs/security-review-2026-11.md](docs/security-review-2026-11.md)
 
 注意: プレビュー枠(Claude Code のブラウザペイン)では requestAnimationFrame が
 動かないため、Google の地図は描画されない。確認は通常のブラウザで
@@ -68,11 +77,20 @@ Google マップも検討したが、利用開始に Google Cloud の請求先�
 ## 1冊追加する手順
 
 1. `data/books/_template.yaml` をコピーして記入(ファイル名は `著者-書名スラッグ.yaml`)
-2. 変換を実行:
+2. 検証と変換を実行:
 
 ```bash
+node tools/validate.js   # 書式の確認。ERROR があれば直す(WARN/INFO は目で判断)
 node build.js
 ```
+
+`validate.js` は必須項目・列挙値・座標の範囲と桁・ISBN のチェックディジット・
+日付の書式・重複・楽天キャッシュの別版一致などを見る。データは書き換えない。
+`--strict` で WARN も失敗扱い、`--quiet` で INFO を隠す。
+
+地図のキーが無い環境で中身だけ確かめたいときは `node build.js --no-maps` で
+ビルドすると、`index.html` が地図の代わりに引用の一覧を出す(公開用の CI では
+キーが無いと従来どおり失敗する)。
 
 ### APIキーを使う場合(楽天の書影・アフィリエイト、Amazonタグ)
 
@@ -110,8 +128,9 @@ python3 -m http.server 8776 --directory prototype
 
 ## 既知の課題
 
-- 表紙画像は openBD 頼みでカバー率が低い(15冊中1冊)。楽天ブックスAPIを
-  ビルド時に呼ぶ口は用意済み(上記の環境変数)。鍵を入れれば表紙が埋まる。
+- 表紙画像は楽天ブックスAPI(ビルド時)と openBD(閲覧時)から。2026-11 時点で
+  22冊中16冊は楽天から取得済み、3冊は見つからず。書名検索で別の版の書影が
+  当たっているものが4冊ある(`node tools/validate.js` の INFO に出る)。
   Amazon PA-API は過去30日以内の発送済み売上が必要で、2026-08 時点は要件未達のため保留
 - Amazonリンクは build.js が ISBN-10 変換で自動生成する(PA-API不要)。
   YAML の links.amazon に手動URLを書けばそちらが優先される

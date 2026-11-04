@@ -14,8 +14,20 @@
 <meta property="og:image" content="https://shirai-aka.github.io/nite-map/og.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="〇〇にて — あとがきの地図。栞を挟んだ「〇〇にて」の一行が並ぶ見出し画像">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="〇〇にて — あとがきの地図">
+<meta name="twitter:description" content="本のあとがきの終わりに置かれた「どこで書いたか」の一行を、地図に集めて。">
+<meta name="twitter:image" content="https://shirai-aka.github.io/nite-map/og.png?v=3">
+<link rel="canonical" href="https://shirai-aka.github.io/nite-map/">
+<!-- 使わない機構を閉じる最小の CSP(<base> の差し替え、プラグイン、フォーム送信)。
+     script-src 等の全面的な CSP は Google マップの読み込み先が多く、実機確認なしに入れると
+     地図が消えるので入れていない(docs/security-review-2026-11.md に案を残している) -->
+<meta http-equiv="Content-Security-Policy" content="base-uri 'none'; object-src 'none'; form-action 'none'">
+<meta name="theme-color" content="#fbf9f5">
+<!-- 栞の形のアイコン(favicon が無いと毎回 404 を取りに行く) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 18'%3E%3Cpath d='M1.2 1.2h9.6v13.2l-4.8-3.3-4.8 3.3z' fill='%237a5a3c' stroke='%23fbf9f5' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -54,8 +66,14 @@
 
   /* 「この地図について」 */
   .about-link { margin: 28px 0 0; font-size: 12px; letter-spacing: .1em; }
-  .about-link a { color: #7a7263; text-decoration: underline; text-underline-offset: 4px; }
-  .about-link a:hover { color: #3a352e; }
+  /* 画面内の切り替えなので、リンクの見た目をしたボタンにする(href="#" は使わない) */
+  .about-link button {
+    font: inherit; letter-spacing: inherit; color: #7a7263; background: none; border: 0; padding: 0;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
+  }
+  .about-link button:hover { color: #3a352e; }
+  /* キーボード操作時の焦点。マウスでは出さない */
+  :focus-visible { outline: 2px solid #b0522e; outline-offset: 2px; }
   .about-head {
     font-size: 12px; letter-spacing: .18em; color: #3a352e;
     margin: 26px 0 8px;
@@ -118,7 +136,7 @@
   /* 「地図の外」コーナー */
   .offmap-link {
     position: absolute; bottom: 24px; left: 28px; z-index: 1000;
-    font-size: 13px; letter-spacing: .25em; color: #3a352e;
+    font: inherit; font-size: 13px; letter-spacing: .25em; color: #3a352e; border: 0;
     background: #fbf9f5; padding: 9px 16px 9px 18px; border-radius: 2px;
     box-shadow: 0 1px 6px rgba(58,53,46,.25);
     cursor: pointer; user-select: none; display: none;
@@ -165,8 +183,8 @@
     #list { display: block; padding: 4px 20px 40px; }
     #list .item {
       padding: 20px 0; border-top: 1px solid #e3ddd2;
-      cursor: pointer;
     }
+    #list .item[data-key] { cursor: pointer; }
     #list .item:first-child { border-top: none; }
     #list .item.active { background: #f4f0e8; }
     #list .item .quote { font-size: 15px; }
@@ -191,9 +209,34 @@
 
   }
 
+  /* 地図なし(build.js --no-maps、またはキー未設定)。地図の場所に引用の一覧を出す。
+     データの中身を確かめるための姿で、公開時には使わない */
+  body.no-map #map { display: none; }
+  body.no-map #list {
+    display: block; position: absolute; top: 0; left: 0; right: var(--panel-w); bottom: 0;
+    overflow-y: auto; box-sizing: border-box; padding: 30px 32px 44px; background: #eceae4;
+  }
+  body.no-map #list .item { padding: 20px 0; border-top: 1px solid #ddd5c6; }
+  body.no-map #list .item:first-child { border-top: none; }
+  body.no-map #list .offmap-head {
+    margin: 28px 0 0; padding-top: 20px; border-top: 1px solid #cfc7b8;
+    font-size: 12px; letter-spacing: .25em; color: #7a7263;
+  }
+  body.no-map #list .about-block { display: none; } /* 右のパネルから読める */
+  .notice {
+    font-size: 12.5px; line-height: 1.9; color: #8a6a3c; margin: 0 0 20px;
+    padding: 10px 12px; background: #f4ede0; border-left: 2px solid #c9a86b;
+  }
+  .notice code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+  @media (max-width: 600px) {
+    body.no-map #list { position: static; padding: 4px 20px 40px; background: transparent; }
+    body.no-map #list .about-block { display: block; }
+    .notice { margin: 0 20px 8px; }
+  }
+
   /* 拡大中だけ出す「全体を見る」 */
   .world-link {
-    background: #fbf9f5; color: #3a352e;
+    background: #fbf9f5; color: #3a352e; border: 0;
     font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif;
     font-size: 12px; letter-spacing: .15em;
     padding: 8px 14px; margin: 10px; border-radius: 2px;
@@ -203,20 +246,24 @@
   }
   .world-link:hover { background: #f4f0e8; }
   body.zoomed .world-link { opacity: 1; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .pin, .world-link { transition: none; }
+  }
 </style>
 </head>
 <body>
-<aside id="panel">
+<aside id="panel" aria-label="案内と読み物">
   <div class="site-title">
     <h1>〇〇にて</h1>
     <p>あとがきの地図</p>
   </div>
-  <div id="panel-body"></div>
+  <div id="panel-body" aria-live="polite"></div>
 </aside>
-<div id="map"></div>
-<section id="detail"></section>
-<section id="list"></section>
-<div class="offmap-link" id="offmap-link">地図の外</div>
+<div id="map" role="region" aria-label="本が書かれた場所の地図"></div>
+<section id="detail" aria-label="選んだ場所の本" aria-live="polite"></section>
+<section id="list" aria-label="引用の一覧"></section>
+<button type="button" class="offmap-link" id="offmap-link">地図の外</button>
+<noscript><p class="notice" style="margin:20px">このページは JavaScript で地図と引用を描いています。JavaScript を有効にしてご覧ください。</p></noscript>
 
 <script src="config.js"></script>
 <script>
@@ -224,9 +271,10 @@ const MOBILE = window.matchMedia("(max-width: 600px)");
 
 // 表示用: 引用から署名(氏名)を省く。データ上の quote は原文ママのまま
 function displayQuote(rec) {
-  const signer = rec.atogaki.signer || rec.translator || rec.author;
-  const q = rec.atogaki.quote;
-  if (q === signer) return q;
+  const a = rec.atogaki || {};
+  const signer = a.signer || rec.translator || rec.author;
+  const q = String(a.quote == null ? "" : a.quote);
+  if (!signer || q === signer) return q;
   // 署名を外すと行頭にダッシュや読点が残ることがあるので落とす
   return q.replace(signer, "").replace(/\s+/g, " ").trim()
           .replace(/^[―—–\-・、,\s]+/, "").trim();
@@ -261,6 +309,7 @@ function worldZoom(w, h) {
 
 // 表紙画像: openBD から ISBN でまとめて取得(取れなければ表紙なしで表示)
 async function fetchCovers(isbns) {
+  if (!isbns.length) return {};
   try {
     const res = await fetch("https://api.openbd.jp/v1/get?isbn=" + isbns.join(","));
     const data = await res.json();
@@ -302,24 +351,30 @@ function coverFallback(img) {
   img.replaceWith(div);
 }
 
+// 外部リンクは https の URL だけ通す(データや API の値をそのまま href に入れない)
+function safeUrl(u) {
+  return typeof u === "string" && /^https:\/\//i.test(u) ? u : "";
+}
+
 function entryHtml(b, covers) {
   const isbn = b.book && b.book.isbn;
   // 表紙は楽天(ビルド時に取得)を優先し、無ければ openBD
-  const cover = b.cover || covers[isbn] || "";
+  const cover = safeUrl(b.cover || covers[isbn] || "");
   const links = b.links || {};
+  const rakuten = safeUrl(links.rakuten_url), amazon = safeUrl(links.amazon_url);
   const buy = [
-    links.rakuten_url ? `<a class="buy" href="${links.rakuten_url}" target="_blank" rel="noopener">楽天ブックス</a>` : "",
-    links.amazon_url ? `<a class="buy" href="${links.amazon_url}" target="_blank" rel="noopener">Amazon</a>` : ""
+    rakuten ? `<a class="buy" href="${esc(rakuten)}" target="_blank" rel="noopener">楽天ブックス</a>` : "",
+    amazon ? `<a class="buy" href="${esc(amazon)}" target="_blank" rel="noopener">Amazon</a>` : ""
   ].filter(Boolean).join("<span class=\"sep\">/</span>");
   // 書影がなければ、書名を縦に置いた素の表紙で埋める(欠けたまま並ぶと不揃いになる)
   const blank = `<div class="cover cover-none"><span>${esc(b.title)}</span></div>`;
   return `<div class="entry">
-     <p class="quote">${displayQuote(b)}</p>
+     <p class="quote">${esc(displayQuote(b))}</p>
      <div class="bib-row">
        ${cover
          ? `<img class="cover" src="${esc(cover)}" data-title="${esc(b.title)}" alt="" onerror="coverFallback(this)">`
          : blank}
-       <p class="bib"><span class="title">『${b.title}』</span><br>${b.author}${b.translator ? "(訳: " + b.translator + ")" : ""}${buy ? `<br>${buy}` : ""}</p>
+       <p class="bib"><span class="title">『${esc(b.title)}』</span><br>${esc(b.author)}${b.translator ? "(訳: " + esc(b.translator) + ")" : ""}${buy ? `<br>${buy}` : ""}</p>
      </div>
    </div>`;
 }
@@ -333,20 +388,33 @@ function setPanel(html) {
   document.getElementById("panel").scrollTop = 0;
 }
 
+// 地図を出せない・データを読めないときの断り書き。パネルの先頭(スマホでは題字の下)に置く
+function setNotice(html) {
+  let el = document.getElementById("notice");
+  if (!html) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement("p");
+    el.id = "notice"; el.className = "notice"; el.setAttribute("role", "status");
+    panelBody().before(el);
+  }
+  el.innerHTML = html;
+}
+
 // 何も選んでいないとき。ここがこのメディアの説明と規模を兼ねる
 function showIntro(stats) {
+  const years = stats.from != null ? `<br>${stats.from}年 — ${stats.to}年` : "";
   setPanel(
     `<p class="lead">本のあとがきに書かれた「〇〇にて」を集めています。<br>
       地図の点をたどると、その本が書かれた場所に行き当たります。</p>
-     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所<br>${stats.from}年 — ${stats.to}年</p>
-     <p class="about-link"><a href="#" id="about-link">この地図について</a></p>`
+     <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所${years}</p>
+     <p class="about-link"><button type="button" id="about-link">この地図について</button></p>`
   );
   const a = document.getElementById("about-link");
-  if (a) a.addEventListener("click", e => {
-    e.preventDefault();
+  if (a) a.addEventListener("click", () => {
     setPanel(aboutHtml(true));
-    document.getElementById("back-link")
-      .addEventListener("click", ev => { ev.preventDefault(); showIntro(stats); });
+    const back = document.getElementById("back-link");
+    back.addEventListener("click", () => { showIntro(stats); document.getElementById("about-link").focus(); });
+    back.focus();
   });
 }
 
@@ -380,11 +448,11 @@ function aboutHtml(withBack) {
     <p class="about-body">掲載についてのご連絡、収録してほしい「〇〇にて」のお知らせは
       <a href="https://x.com/shirai_aka" target="_blank" rel="noopener">X(@shirai_aka)</a>
       までお願いします。</p>
-    ${withBack ? `<p class="about-link"><a href="#" id="back-link">← 戻る</a></p>` : ""}`;
+    ${withBack ? `<p class="about-link"><button type="button" id="back-link">← 戻る</button></p>` : ""}`;
 }
 
 function showPlace(name, list, covers) {
-  setPanel(`<p class="place-head">${name}</p>` + list.map(b => entryHtml(b, covers)).join(""));
+  setPanel(`<p class="place-head">${esc(name)}</p>` + list.map(b => entryHtml(b, covers)).join(""));
 }
 
 // 「地図の外」: precision: unmappable(機上にて等)を kind ごとにまとめて出す
@@ -400,22 +468,57 @@ function showOffmap(offmap, covers) {
     `<p class="lead">地図に置けない場所で書かれた本。</p>` +
     Object.keys(kinds).map(k =>
       `<div class="offmap-group">
-         <p class="place-head">${k}</p>
+         <p class="place-head">${esc(k)}</p>
          ${kinds[k].map(b => entryHtml(b, covers)).join("")}
        </div>`
     ).join("")
   );
 }
 
-async function init() {
-  // no-cache: 毎回サーバーに問い合わせる(更新が反映されない事故を防ぐ。
-  // 中身が変わっていなければ 304 が返るので転送量は増えない)
-  const books = await fetch("books.json", { cache: "no-cache" }).then(r => r.json());
-  const mappable = books.filter(b => b.place && b.place.lat != null && b.place.lng != null);
+// books.json を読む。無い・壊れている・配列でないときは null を返し、断り書きを出す
+// (黙って真っ白になると、ビルド忘れなのか地図の問題なのか分からない)
+async function loadBooks() {
+  try {
+    // no-cache: 毎回サーバーに問い合わせる(更新が反映されない事故を防ぐ。
+    // 中身が変わっていなければ 304 が返るので転送量は増えない)
+    const res = await fetch("books.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("配列でない");
+    return data;
+  } catch (e) {
+    setNotice(`引用のデータ(books.json)を読み込めませんでした(${esc(e.message)})。<br>
+      手元で開いている場合は <code>node build.js</code> を実行して生成してください。`);
+    return null;
+  }
+}
+
+// noMap: Google Maps を読み込まず、地図の場所に引用の一覧を出す
+// (build.js --no-maps、またはキー未設定のとき)
+async function init(opts) {
+  const noMap = !!(opts && opts.noMap);
+  const books = await loadBooks();
+  if (!books) return;
+  const mappable = books.filter(b => b.place && typeof b.place.lat === "number" && typeof b.place.lng === "number");
   const offmap = books.filter(b => b.place && b.place.precision === "unmappable");
   const covers = await fetchCovers(
     books.map(b => b.book && b.book.isbn).filter(Boolean)
   );
+
+  // 同一座標の本をまとめる
+  const groups = {};
+  for (const b of mappable) {
+    const key = b.place.lat + "," + b.place.lng;
+    (groups[key] ||= []).push(b);
+  }
+  const precisions = {};
+  for (const key in groups) precisions[key] = groups[key][0].place.precision;
+
+  if (noMap) {
+    document.body.classList.add("no-map");
+    initNoMap(books, mappable, offmap, covers, groups);
+    return;
+  }
 
   // 地図を作る。スマホの帯は先に高さを決めておく
   // (高さ0のまま生成すると、あとから高さを入れてもズームが切り上げられる)
@@ -448,19 +551,10 @@ async function init() {
 
   const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
-  // 同一座標の本をまとめる
-  const groups = {};
-  for (const b of mappable) {
-    const key = b.place.lat + "," + b.place.lng;
-    (groups[key] ||= []).push(b);
-  }
-
   const markers = {};
-  const precisions = {};
   for (const key in groups) {
     const g = groups[key];
     const [lat, lng] = key.split(",").map(Number);
-    precisions[key] = g[0].place.precision;
 
     const content = shioriElement(g.length);
     const marker = new AdvancedMarkerElement({
@@ -501,7 +595,7 @@ async function init() {
 
   function openPlace(key, g) {
     document.getElementById("detail").innerHTML =
-      `<p class="place-head">${g[0].place.name}</p>` +
+      `<p class="place-head">${esc(g[0].place.name)}</p>` +
       g.map(b => entryHtml(b, covers)).join("");
     document.body.classList.add("place-selected");
     window.scrollTo(0, 0);
@@ -541,9 +635,11 @@ async function init() {
 
   // 拡大したあと世界に戻るための導線
   function addWorldControl(onReset) {
-    const el = document.createElement("div");
+    const el = document.createElement("button");
+    el.type = "button";
     el.className = "world-link";
     el.textContent = "全体を見る";
+    el.setAttribute("aria-label", "世界全体を見る(地図を元の大きさに戻す)");
     el.addEventListener("click", () => { showWorld(); if (onReset) onReset(); });
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(el);
     map.addListener("zoom_changed", () =>
@@ -552,30 +648,29 @@ async function init() {
 
   function renderList() {
     const list = document.getElementById("list");
-    const key = b => b.place.lat + "," + b.place.lng;
-    const byDate = (a, b) => (b.atogaki.date || "").localeCompare(a.atogaki.date || "");
-    const item = (b, k) =>
-      `<div class="item"${k ? ` data-key="${k}"` : ""}>${entryHtml(b, covers)}</div>`;
+    renderListInto(list, mappable, offmap, covers);
 
-    list.innerHTML =
-      mappable.slice().sort(byDate).map(b => item(b, key(b))).join("") +
-      (offmap.length
-        ? `<p class="offmap-head">地図の外</p>` +
-          offmap.slice().sort(byDate).map(b => item(b, null)).join("")
-        : "") +
-      // スマホには据え置きのパネルがないので、一覧の末尾に置く
-      `<div class="about-block">${aboutHtml(false)}</div>`;
-
-    list.addEventListener("click", e => {
-      const el = e.target.closest(".item");
-      if (!el || e.target.closest("a")) return; // Amazonリンクは素通し
-      const k = el.dataset.key;
-      if (!k) return; // 「地図の外」は飛び先がない
+    const jumpTo = k => {
       const [lat, lng] = k.split(",").map(Number);
       window.scrollTo(0, 0);
       map.setZoom(zoomFor(precisions[k]));
       map.panTo({ lat, lng });
       highlightPin(k);
+    };
+    list.addEventListener("click", e => {
+      const el = e.target.closest(".item");
+      if (!el || e.target.closest("a")) return; // Amazonリンクは素通し
+      const k = el.dataset.key;
+      if (!k) return; // 「地図の外」は飛び先がない
+      jumpTo(k);
+    });
+    // キーボードでも一覧から地図へ飛べるようにする(Enter / Space)
+    list.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const el = e.target.closest(".item");
+      if (!el || e.target !== el || !el.dataset.key) return;
+      e.preventDefault();
+      jumpTo(el.dataset.key);
     });
   }
 
@@ -594,13 +689,7 @@ async function init() {
     renderList();
     addWorldControl();
   } else {
-    const years = books.map(b => b.atogaki.date).filter(Boolean)
-                       .map(d => Number(String(d).slice(0, 4)));
-    const stats = {
-      quotes: books.length,
-      places: Object.keys(groups).length,
-      from: Math.min(...years), to: Math.max(...years)
-    };
+    const stats = statsOf(books, groups);
     const reset = () => { selectPin(null); showIntro(stats); };
     showIntro(stats);
     addWorldControl(reset);
@@ -629,14 +718,57 @@ async function init() {
   MOBILE.addEventListener("change", () => window.location.reload());
 }
 
+// 引用の一覧(スマホの本体、および地図なしのときの本体)
+function renderListInto(list, mappable, offmap, covers) {
+  const key = b => b.place.lat + "," + b.place.lng;
+  const dateOf = b => String((b.atogaki && b.atogaki.date) || "");
+  const byDate = (a, b) => dateOf(b).localeCompare(dateOf(a));
+  // 地図に飛べる項目だけキーボードで選べるようにする(地図なしのときは飛び先がない)
+  const jumpable = k => k && !document.body.classList.contains("no-map");
+  const item = (b, k) =>
+    `<div class="item"${jumpable(k)
+      ? ` data-key="${esc(k)}" tabindex="0" aria-label="${esc(b.place.name)}を地図で見る"` : ""}>${entryHtml(b, covers)}</div>`;
+
+  list.innerHTML =
+    mappable.slice().sort(byDate).map(b => item(b, key(b))).join("") +
+    (offmap.length
+      ? `<p class="offmap-head">地図の外</p>` +
+        offmap.slice().sort(byDate).map(b => item(b, null)).join("")
+      : "") +
+    // スマホには据え置きのパネルがないので、一覧の末尾に置く
+    `<div class="about-block">${aboutHtml(false)}</div>`;
+}
+
+// 案内に出す規模。日付のある本が1冊もなければ年の行は出さない
+function statsOf(books, groups) {
+  const years = books.map(b => b.atogaki && b.atogaki.date).filter(Boolean)
+                     .map(d => Number(String(d).slice(0, 4))).filter(Number.isFinite);
+  return {
+    quotes: books.length,
+    places: Object.keys(groups).length,
+    from: years.length ? Math.min(...years) : null,
+    to: years.length ? Math.max(...years) : null
+  };
+}
+
+// 地図なし: 一覧を地図の場所に出し、右のパネルは案内のまま。栞がないので寄る操作もない
+function initNoMap(books, mappable, offmap, covers, groups) {
+  renderListInto(document.getElementById("list"), mappable, offmap, covers);
+  showIntro(statsOf(books, groups));
+}
+
 // Google Maps を読み込んでから init を呼ぶ。キーは config.js 経由で渡る
 (function loadMap() {
   const cfg = window.NITE_CONFIG || {};
   if (!cfg.googleMapsKey) {
-    document.getElementById("panel-body").innerHTML =
-      `<p class="lead">地図のキーが設定されていません。<br>
-        <code>.env</code> に GOOGLE_MAPS_KEY を入れて
-        <code>node --env-file=.env build.js</code> を実行してください。</p>`;
+    // キーが無くても引用は読めるようにする(build.js --no-maps の確認用。
+    // 公開用の CI はキーが無いと止まるので、公開先でこの姿になることはない)
+    setNotice(cfg.noMaps
+      ? `地図なしで表示しています(<code>build.js --no-maps</code>)。`
+      : `地図のキーが設定されていないため、地図なしで表示しています。<br>
+         <code>.env</code> に GOOGLE_MAPS_KEY を入れて
+         <code>node --env-file=.env build.js</code> を実行してください。`);
+    init({ noMap: true });
     return;
   }
   window.initMap = init;

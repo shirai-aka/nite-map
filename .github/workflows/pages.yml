@@ -7,10 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# 既定はすべて不可にして、ジョブごとに必要な権限だけ与える
+# (ビルドは読み取りだけ。Pages への書き込みと OIDC トークンは deploy ジョブだけ)
+permissions: {}
 
 # 同時に走らせない。走行中のものは止めずに待たせる
 concurrency:
@@ -20,12 +19,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: データを検証(SCHEMA.md との照合。書式違反があればここで止める)
+        run: node tools/validate.js
 
       - name: ビルド(books.json と config.js を生成)
         env:
@@ -54,6 +58,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
