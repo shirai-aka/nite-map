@@ -1,51 +1,14 @@
 #!/usr/bin/env node
 // data/books/*.yaml を読んで prototype/books.json を生成する。
-// 依存なし。SCHEMA.md の2階層・スカラー値のみという書式を前提にした限定パーサ。
+// 依存なし。YAML は SCHEMA.md の2階層・スカラー値のみという書式を前提にした
+// 限定パーサ(tools/yaml-lite.js。tools/validate.js と共用)で読む。
 // 「_」始まりのファイル(テンプレート・サンプル)は無視する。
 const fs = require("fs");
 const path = require("path");
+const { parseYaml } = require("./tools/yaml-lite");
 
 const BOOKS_DIR = path.join(__dirname, "data", "books");
 const OUT = path.join(__dirname, "prototype", "books.json");
-
-function parseScalar(s) {
-  s = s.trim();
-  if (s === "" || s === "null" || s === "~") return null;
-  if (s === "true") return true;
-  if (s === "false") return false;
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    return s.slice(1, -1);
-  }
-  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
-  return s;
-}
-
-function parseYaml(text, file) {
-  const obj = {};
-  let section = null;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim() || raw.trim().startsWith("#")) continue;
-    const indent = raw.match(/^ */)[0].length;
-    const line = raw.trim();
-    const m = line.match(/^([^:]+):(.*)$/);
-    if (!m) throw new Error(`${file}: パースできない行: ${line}`);
-    const key = m[1].trim();
-    const rest = m[2];
-    if (indent === 0) {
-      if (rest.trim() === "") {
-        section = {};
-        obj[key] = section;
-      } else {
-        obj[key] = parseScalar(rest);
-        section = null;
-      }
-    } else {
-      if (!section) throw new Error(`${file}: 予期しないインデント: ${line}`);
-      section[key] = parseScalar(rest);
-    }
-  }
-  return obj;
-}
 
 function validate(rec, file) {
   const errs = [];
