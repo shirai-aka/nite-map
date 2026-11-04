@@ -14,8 +14,16 @@
 <meta property="og:image" content="https://shirai-aka.github.io/nite-map/og.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="〇〇にて — あとがきの地図。栞を挟んだ「〇〇にて」の一行が並ぶ見出し画像">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="〇〇にて — あとがきの地図">
+<meta name="twitter:description" content="本のあとがきの終わりに置かれた「どこで書いたか」の一行を、地図に集めて。">
+<meta name="twitter:image" content="https://shirai-aka.github.io/nite-map/og.png?v=3">
+<link rel="canonical" href="https://shirai-aka.github.io/nite-map/">
+<meta name="theme-color" content="#fbf9f5">
+<!-- 栞の形のアイコン(favicon が無いと毎回 404 を取りに行く) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 18'%3E%3Cpath d='M1.2 1.2h9.6v13.2l-4.8-3.3-4.8 3.3z' fill='%237a5a3c' stroke='%23fbf9f5' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -54,8 +62,14 @@
 
   /* 「この地図について」 */
   .about-link { margin: 28px 0 0; font-size: 12px; letter-spacing: .1em; }
-  .about-link a { color: #7a7263; text-decoration: underline; text-underline-offset: 4px; }
-  .about-link a:hover { color: #3a352e; }
+  /* 画面内の切り替えなので、リンクの見た目をしたボタンにする(href="#" は使わない) */
+  .about-link button {
+    font: inherit; letter-spacing: inherit; color: #7a7263; background: none; border: 0; padding: 0;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
+  }
+  .about-link button:hover { color: #3a352e; }
+  /* キーボード操作時の焦点。マウスでは出さない */
+  :focus-visible { outline: 2px solid #b0522e; outline-offset: 2px; }
   .about-head {
     font-size: 12px; letter-spacing: .18em; color: #3a352e;
     margin: 26px 0 8px;
@@ -118,7 +132,7 @@
   /* 「地図の外」コーナー */
   .offmap-link {
     position: absolute; bottom: 24px; left: 28px; z-index: 1000;
-    font-size: 13px; letter-spacing: .25em; color: #3a352e;
+    font: inherit; font-size: 13px; letter-spacing: .25em; color: #3a352e; border: 0;
     background: #fbf9f5; padding: 9px 16px 9px 18px; border-radius: 2px;
     box-shadow: 0 1px 6px rgba(58,53,46,.25);
     cursor: pointer; user-select: none; display: none;
@@ -165,8 +179,8 @@
     #list { display: block; padding: 4px 20px 40px; }
     #list .item {
       padding: 20px 0; border-top: 1px solid #e3ddd2;
-      cursor: pointer;
     }
+    #list .item[data-key] { cursor: pointer; }
     #list .item:first-child { border-top: none; }
     #list .item.active { background: #f4f0e8; }
     #list .item .quote { font-size: 15px; }
@@ -218,7 +232,7 @@
 
   /* 拡大中だけ出す「全体を見る」 */
   .world-link {
-    background: #fbf9f5; color: #3a352e;
+    background: #fbf9f5; color: #3a352e; border: 0;
     font-family: "Zen Old Mincho", "Hiragino Mincho ProN", serif;
     font-size: 12px; letter-spacing: .15em;
     padding: 8px 14px; margin: 10px; border-radius: 2px;
@@ -228,20 +242,24 @@
   }
   .world-link:hover { background: #f4f0e8; }
   body.zoomed .world-link { opacity: 1; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .pin, .world-link { transition: none; }
+  }
 </style>
 </head>
 <body>
-<aside id="panel">
+<aside id="panel" aria-label="案内と読み物">
   <div class="site-title">
     <h1>〇〇にて</h1>
     <p>あとがきの地図</p>
   </div>
-  <div id="panel-body"></div>
+  <div id="panel-body" aria-live="polite"></div>
 </aside>
-<div id="map"></div>
-<section id="detail"></section>
-<section id="list"></section>
-<div class="offmap-link" id="offmap-link">地図の外</div>
+<div id="map" role="region" aria-label="本が書かれた場所の地図"></div>
+<section id="detail" aria-label="選んだ場所の本" aria-live="polite"></section>
+<section id="list" aria-label="引用の一覧"></section>
+<button type="button" class="offmap-link" id="offmap-link">地図の外</button>
+<noscript><p class="notice" style="margin:20px">このページは JavaScript で地図と引用を描いています。JavaScript を有効にしてご覧ください。</p></noscript>
 
 <script src="config.js"></script>
 <script>
@@ -385,14 +403,14 @@ function showIntro(stats) {
     `<p class="lead">本のあとがきに書かれた「〇〇にて」を集めています。<br>
       地図の点をたどると、その本が書かれた場所に行き当たります。</p>
      <p class="stats">${stats.quotes}の引用<br>${stats.places}の場所${years}</p>
-     <p class="about-link"><a href="#" id="about-link">この地図について</a></p>`
+     <p class="about-link"><button type="button" id="about-link">この地図について</button></p>`
   );
   const a = document.getElementById("about-link");
-  if (a) a.addEventListener("click", e => {
-    e.preventDefault();
+  if (a) a.addEventListener("click", () => {
     setPanel(aboutHtml(true));
-    document.getElementById("back-link")
-      .addEventListener("click", ev => { ev.preventDefault(); showIntro(stats); });
+    const back = document.getElementById("back-link");
+    back.addEventListener("click", () => { showIntro(stats); document.getElementById("about-link").focus(); });
+    back.focus();
   });
 }
 
@@ -426,7 +444,7 @@ function aboutHtml(withBack) {
     <p class="about-body">掲載についてのご連絡、収録してほしい「〇〇にて」のお知らせは
       <a href="https://x.com/shirai_aka" target="_blank" rel="noopener">X(@shirai_aka)</a>
       までお願いします。</p>
-    ${withBack ? `<p class="about-link"><a href="#" id="back-link">← 戻る</a></p>` : ""}`;
+    ${withBack ? `<p class="about-link"><button type="button" id="back-link">← 戻る</button></p>` : ""}`;
 }
 
 function showPlace(name, list, covers) {
@@ -613,9 +631,11 @@ async function init(opts) {
 
   // 拡大したあと世界に戻るための導線
   function addWorldControl(onReset) {
-    const el = document.createElement("div");
+    const el = document.createElement("button");
+    el.type = "button";
     el.className = "world-link";
     el.textContent = "全体を見る";
+    el.setAttribute("aria-label", "世界全体を見る(地図を元の大きさに戻す)");
     el.addEventListener("click", () => { showWorld(); if (onReset) onReset(); });
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(el);
     map.addListener("zoom_changed", () =>
@@ -626,16 +646,27 @@ async function init(opts) {
     const list = document.getElementById("list");
     renderListInto(list, mappable, offmap, covers);
 
-    list.addEventListener("click", e => {
-      const el = e.target.closest(".item");
-      if (!el || e.target.closest("a")) return; // Amazonリンクは素通し
-      const k = el.dataset.key;
-      if (!k) return; // 「地図の外」は飛び先がない
+    const jumpTo = k => {
       const [lat, lng] = k.split(",").map(Number);
       window.scrollTo(0, 0);
       map.setZoom(zoomFor(precisions[k]));
       map.panTo({ lat, lng });
       highlightPin(k);
+    };
+    list.addEventListener("click", e => {
+      const el = e.target.closest(".item");
+      if (!el || e.target.closest("a")) return; // Amazonリンクは素通し
+      const k = el.dataset.key;
+      if (!k) return; // 「地図の外」は飛び先がない
+      jumpTo(k);
+    });
+    // キーボードでも一覧から地図へ飛べるようにする(Enter / Space)
+    list.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const el = e.target.closest(".item");
+      if (!el || e.target !== el || !el.dataset.key) return;
+      e.preventDefault();
+      jumpTo(el.dataset.key);
     });
   }
 
@@ -688,8 +719,11 @@ function renderListInto(list, mappable, offmap, covers) {
   const key = b => b.place.lat + "," + b.place.lng;
   const dateOf = b => String((b.atogaki && b.atogaki.date) || "");
   const byDate = (a, b) => dateOf(b).localeCompare(dateOf(a));
+  // 地図に飛べる項目だけキーボードで選べるようにする(地図なしのときは飛び先がない)
+  const jumpable = k => k && !document.body.classList.contains("no-map");
   const item = (b, k) =>
-    `<div class="item"${k ? ` data-key="${esc(k)}"` : ""}>${entryHtml(b, covers)}</div>`;
+    `<div class="item"${jumpable(k)
+      ? ` data-key="${esc(k)}" tabindex="0" aria-label="${esc(b.place.name)}を地図で見る"` : ""}>${entryHtml(b, covers)}</div>`;
 
   list.innerHTML =
     mappable.slice().sort(byDate).map(b => item(b, key(b))).join("") +
