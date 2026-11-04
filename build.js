@@ -3,22 +3,53 @@
 // 依存なし。YAML は SCHEMA.md の2階層・スカラー値のみという書式を前提にした
 // 限定パーサ(tools/yaml-lite.js。tools/validate.js と共用)で読む。
 // 「_」始まりのファイル(テンプレート・サンプル)は無視する。
+//
+//   node build.js                     # 通常(キーは環境変数か --env-file=.env から)
+//   node build.js --no-maps           # 地図キーなしの確認用。config.js に noMaps を書き、
+//                                     # index.html は地図の代わりに引用の一覧を出す
+//   node build.js --retry-misses      # 楽天で「見つからず」だった本をもう一度取りに行く
 const fs = require("fs");
 const path = require("path");
 const { parseYaml } = require("./tools/yaml-lite");
 
+const ARGS = new Set(process.argv.slice(2));
+const NO_MAPS = ARGS.has("--no-maps");
+const RETRY_MISSES = ARGS.has("--retry-misses");
+for (const a of ARGS) {
+  if (!a.startsWith("--") || !["--no-maps", "--retry-misses"].includes(a)) {
+    console.error(`不明な引数: ${a}(使えるのは --no-maps / --retry-misses)`);
+    process.exit(2);
+  }
+}
+
 const BOOKS_DIR = path.join(__dirname, "data", "books");
 const OUT = path.join(__dirname, "prototype", "books.json");
 
+// サイトが壊れる最低限だけここで止める。細かい検証は tools/validate.js(CI でも走る)
 function validate(rec, file) {
   const errs = [];
-  if (!rec.title) errs.push("title がない");
-  if (!rec.author) errs.push("author がない");
-  if (!rec.atogaki || !rec.atogaki.quote) errs.push("atogaki.quote がない");
-  if (!rec.place || !rec.place.name) errs.push("place.name がない");
+  const text = v => typeof v === "string" && v.trim() !== "";
+  if (!text(rec.title)) errs.push("title がない");
+  if (!text(rec.author)) errs.push("author がない");
+  if (!rec.atogaki || !text(rec.atogaki.quote)) errs.push("atogaki.quote がない");
+  if (!rec.place || !text(rec.place.name)) errs.push("place.name がない");
   const p = rec.place || {};
-  if (p.precision !== "unmappable" && (p.lat == null || p.lng == null)) {
-    errs.push("座標がない(unmappable でないのに lat/lng が null)");
+  if (p.precision === "unmappable") {
+    if (p.lat != null || p.lng != null) errs.push("unmappable なのに lat/lng がある");
+  } else {
+    if (p.lat == null || p.lng == null) {
+      errs.push("座標がない(unmappable でないのに lat/lng が null)");
+    } else if (typeof p.lat !== "number" || typeof p.lng !== "number" ||
+               Math.abs(p.lat) > 90 || Math.abs(p.lng) > 180) {
+      errs.push(`座標が不正(lat=${JSON.stringify(p.lat)} lng=${JSON.stringify(p.lng)})`);
+    }
+  }
+  const isbn = rec.book && rec.book.isbn;
+  if (isbn != null && isbn !== "" && !(typeof isbn === "string" && /^\d{13}$/.test(isbn))) {
+    errs.push(`isbn はハイフンなし13桁の文字列(引用符で囲む): ${JSON.stringify(isbn)}`);
+  }
+  if (rec.atogaki && typeof rec.atogaki.date === "number") {
+    errs.push(`atogaki.date は文字列にする(引用符で囲む): "${rec.atogaki.date}"`);
   }
   if (errs.length) throw new Error(`${file}: ${errs.join(" / ")}`);
 }
@@ -40,7 +71,7 @@ function amazonUrl(rec) {
   if (rec.links && rec.links.amazon) return rec.links.amazon; // 手動指定を優先
   const isbn10 = rec.book && rec.book.isbn ? isbn13to10(rec.book.isbn) : null;
   if (!isbn10) return null;
-  return `https://www.amazon.co.jp/dp/${isbn10}` + (AMAZON_TAG ? `?tag=${AMAZON_TAG}` : "");
+  return `https://www.amazon.co.jp/dp/${isbn10}` + (AMAZON_TAG ? `?tag=${encodeURIComponent(AMAZON_TAG)}` : "");
 }
 
 // 楽天ブックスAPI。表紙画像とアフィリエイトリンクをここ(ビルド時)で取りに行き、
@@ -149,11 +180,16 @@ async function enrichWithRakuten(records) {
     return;
   }
 
-  let fetched = 0, failed = 0;
+  // キャッシュの値が null なのは「取りに行ったが見つからなかった」印。
+  // 毎回取り直すと2往復+待ち時間を無駄にするので、--retry-misses のときだけ再挑戦する
+  let fetched = 0, failed = 0, skippedMisses = 0;
+  const done = new Set(); // 同じ ISBN が複数ファイルにあっても(上下巻など)1回だけ取りに行く
   for (const rec of records) {
     const isbn = rec.book && rec.book.isbn;
     if (!isbn) continue;
-    if (!cache[isbn]) {
+    const known = Object.prototype.hasOwnProperty.call(cache, isbn);
+    if (!done.has(isbn) && (!known || (cache[isbn] === null && RETRY_MISSES))) {
+      done.add(isbn);
       try {
         cache[isbn] = await fetchRakuten(rec);
         fetched++;
@@ -162,27 +198,37 @@ async function enrichWithRakuten(records) {
         failed++;
       }
       await sleep(1200); // 短時間の連続アクセスは制限されるため間隔を空ける
+    } else if (known && cache[isbn] === null && !done.has(isbn)) {
+      done.add(isbn);
+      skippedMisses++;
     }
     const hit = cache[isbn];
     if (hit) { rec.links.rakuten_url = hit.url; rec.cover = hit.cover; }
   }
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 1), "utf8");
-  console.log(`楽天: 新規取得 ${fetched} 件 / 失敗 ${failed} 件 (キャッシュ ${Object.keys(cache).length} 件)`);
+  console.log(`楽天: 新規取得 ${fetched} 件 / 失敗 ${failed} 件 (キャッシュ ${Object.keys(cache).length} 件)` +
+              (skippedMisses ? ` / 見つからず済み ${skippedMisses} 件は再取得せず(--retry-misses で再挑戦)` : ""));
 }
 
 // 地図のキーはブラウザに渡す必要があるが、リポジトリには置かない。
 // .env から読んで config.js を書き出す(config.js は .gitignore 済み)
+// --no-maps のときはキーを書かず noMaps: true だけを渡す。index.html はこれを見て
+// 地図を読み込まずに引用の一覧を出すので、キーが無い環境でも中身を確かめられる
 function writeConfig() {
-  const cfg = {
-    googleMapsKey: process.env.GOOGLE_MAPS_KEY || "",
-    googleMapsMapId: process.env.GOOGLE_MAPS_MAP_ID || ""
-  };
+  const cfg = NO_MAPS
+    ? { googleMapsKey: "", googleMapsMapId: "", noMaps: true }
+    : {
+        googleMapsKey: process.env.GOOGLE_MAPS_KEY || "",
+        googleMapsMapId: process.env.GOOGLE_MAPS_MAP_ID || ""
+      };
   fs.writeFileSync(
     path.join(__dirname, "prototype", "config.js"),
     "window.NITE_CONFIG = " + JSON.stringify(cfg) + ";\n",
     "utf8"
   );
-  console.log(cfg.googleMapsKey ? "地図: キーを config.js に書き出した" : "地図: キー未設定(config.js は空)");
+  if (NO_MAPS) console.log("地図: --no-maps(地図なしで一覧だけ出す設定を config.js に書いた)");
+  else if (cfg.googleMapsKey) console.log("地図: キーを config.js に書き出した");
+  else console.log("地図: キー未設定(config.js は空。確認用なら --no-maps)");
 }
 
 async function main() {
