@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: "22"
 
+      - name: データを検証(SCHEMA.md との照合。書式違反があればここで止める)
+        run: node tools/validate.js
+
       - name: ビルド(books.json と config.js を生成)
         env:
           GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}

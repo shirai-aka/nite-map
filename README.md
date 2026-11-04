@@ -6,6 +6,8 @@
 
 - `data/books/*.yaml` — 1冊=1ファイルの採取データ。**これが資産のすべて**。書式は [SCHEMA.md](SCHEMA.md)
 - `build.js` — YAML を `prototype/books.json` に変換(依存なし、Node で実行)
+- `tools/validate.js` — YAML を SCHEMA.md に照らして検証(依存なし)。CI でもビルド前に走る
+- `tools/yaml-lite.js` — build.js と validate.js が共用する限定 YAML パーサ
 - `prototype/index.html` — 地図プロトタイプ(Leaflet + OSM日本タイル + openBD表紙)
 
 ## 公開(GitHub Pages)
@@ -68,11 +70,20 @@ Google マップも検討したが、利用開始に Google Cloud の請求先�
 ## 1冊追加する手順
 
 1. `data/books/_template.yaml` をコピーして記入(ファイル名は `著者-書名スラッグ.yaml`)
-2. 変換を実行:
+2. 検証と変換を実行:
 
 ```bash
+node tools/validate.js   # 書式の確認。ERROR があれば直す(WARN/INFO は目で判断)
 node build.js
 ```
+
+`validate.js` は必須項目・列挙値・座標の範囲と桁・ISBN のチェックディジット・
+日付の書式・重複・楽天キャッシュの別版一致などを見る。データは書き換えない。
+`--strict` で WARN も失敗扱い、`--quiet` で INFO を隠す。
+
+地図のキーが無い環境で中身だけ確かめたいときは `node build.js --no-maps` で
+ビルドすると、`index.html` が地図の代わりに引用の一覧を出す(公開用の CI では
+キーが無いと従来どおり失敗する)。
 
 ### APIキーを使う場合(楽天の書影・アフィリエイト、Amazonタグ)
 

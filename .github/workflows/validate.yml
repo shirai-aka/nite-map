@@ -1,0 +1,28 @@
+name: Validate data
+
+# main 以外への push と Pull Request で、データの検証とキー無しビルドを通す。
+# 公開(pages.yml)は main への push のときだけ動くので、その前段の確認用。
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: データを検証(SCHEMA.md との照合)
+        run: node tools/validate.js
+
+      - name: キー無しでビルドが通るか確認(APIキーは使わない)
+        run: node build.js --no-maps
