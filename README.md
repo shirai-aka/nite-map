@@ -8,6 +8,7 @@
 - `build.js` — YAML を `prototype/books.json` に変換(依存なし、Node で実行)
 - `tools/validate.js` — YAML を SCHEMA.md に照らして検証(依存なし)。CI でもビルド前に走る
 - `tools/yaml-lite.js` — build.js と validate.js が共用する限定 YAML パーサ
+- `tools/smoke-prototype.js` — index.html をヘッドレスブラウザで開いて壊れていないか見る(手元用。Playwright が要る)
 - `prototype/index.html` — 地図プロトタイプ(Leaflet + OSM日本タイル + openBD表紙)
 
 ## 公開(GitHub Pages)
@@ -121,8 +122,9 @@ python3 -m http.server 8776 --directory prototype
 
 ## 既知の課題
 
-- 表紙画像は openBD 頼みでカバー率が低い(15冊中1冊)。楽天ブックスAPIを
-  ビルド時に呼ぶ口は用意済み(上記の環境変数)。鍵を入れれば表紙が埋まる。
+- 表紙画像は楽天ブックスAPI(ビルド時)と openBD(閲覧時)から。2026-11 時点で
+  22冊中16冊は楽天から取得済み、3冊は見つからず。書名検索で別の版の書影が
+  当たっているものが4冊ある(`node tools/validate.js` の INFO に出る)。
   Amazon PA-API は過去30日以内の発送済み売上が必要で、2026-08 時点は要件未達のため保留
 - Amazonリンクは build.js が ISBN-10 変換で自動生成する(PA-API不要)。
   YAML の links.amazon に手動URLを書けばそちらが優先される
